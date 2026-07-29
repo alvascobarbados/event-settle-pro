@@ -95,7 +95,7 @@ function CategoryRow({
   className?: string;
 }) {
   const content = (
-    <div className={`grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 py-3 ${className}`}>
+    <div className={`grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 px-3 py-3 ${className}`}>
       <div className="min-w-0">
         <div className="flex items-center">
           {expandable && <Chevron open={!!open} />}
@@ -128,6 +128,7 @@ function CategoryRow({
   return <div className="border-b border-dashed border-hairline last:border-0">{content}</div>;
 }
 
+
 /* ---------- drill primitives ---------- */
 
 const DRILL_GRID_4 =
@@ -140,14 +141,14 @@ const DRILL_GRID_3 =
 function DrillPanel({ children }: { children: React.ReactNode }) {
   return (
     <div className="border-b border-dashed border-hairline" style={{ backgroundColor: "var(--panel)" }}>
-      <div className="pl-4 pr-0 py-3">{children}</div>
+      <div className="px-3 py-3">{children}</div>
     </div>
   );
 }
 
 function DrillHeader({ cols }: { cols: [string, string, string, string] }) {
   return (
-    <div className={`${DRILL_GRID_4} pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground`}>
+    <div className={`hidden sm:grid ${DRILL_GRID_4} pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground`}>
       <div>{cols[0]}</div>
       <div>{cols[1]}</div>
       <div className="text-right">{cols[2]}</div>
@@ -158,13 +159,14 @@ function DrillHeader({ cols }: { cols: [string, string, string, string] }) {
 
 function DrillHeader3({ cols }: { cols: [string, string, string] }) {
   return (
-    <div className={`${DRILL_GRID_3} pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground`}>
+    <div className={`hidden sm:grid ${DRILL_GRID_3} pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground`}>
       <div>{cols[0]}</div>
       <div className="text-right">{cols[1]}</div>
       <div className="text-right">{cols[2]}</div>
     </div>
   );
 }
+
 
 /** 4-column detail row (VENDOR | INV # | AMOUNT | VAT).
  *  Vendor names wrap rather than truncate. The descriptor `sub` spans cols 1–2. */
@@ -174,72 +176,100 @@ function DrillRow({
   name: React.ReactNode; sub?: React.ReactNode; inv?: React.ReactNode;
   amount: React.ReactNode; vat: React.ReactNode; amber?: boolean; indent?: number;
 }) {
+  const amberStyle = amber ? { color: "var(--amber-fg)" } : undefined;
+  const hasInv = inv !== undefined && inv !== "" && inv !== null;
+
   return (
-    <div className={`${DRILL_GRID_4} items-baseline border-t border-dashed border-hairline py-[10px]`}>
-      <div className="min-w-0 [grid-column:1] [grid-row:1]" style={{ paddingLeft: indent * 12 }}>
-        <div className="flex items-start text-[15px] leading-[1.25]">
+    <div className="border-t border-dashed border-hairline py-[10px]">
+      {/* Mobile stacked */}
+      <div className="sm:hidden" style={{ paddingLeft: indent * 12 }}>
+        <div className="flex items-start text-[15px] leading-[1.25] text-ink">
           {amber && <AmberDot />}
-          <span
-            className={`break-words ${amber ? "font-bold" : ""}`}
-            style={amber ? { color: "var(--amber-fg)" } : undefined}
+          <span className={`break-words ${amber ? "font-bold" : ""}`} style={amberStyle}>{name}</span>
+        </div>
+        {sub && <div className="mt-0.5 text-[13px] leading-[1.35] text-muted-foreground">{sub}</div>}
+        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto_60px] items-baseline gap-x-3">
+          <div className="min-w-0 truncate text-[12px] text-muted-foreground tabular-nums">
+            {hasInv ? inv : ""}
+          </div>
+          <div className={`num text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`} style={amberStyle}>
+            {amount}
+          </div>
+          <div className="num text-right text-[12px] text-muted-foreground tabular-nums">
+            {vat === "" || vat === undefined ? "" : vat}
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop grid — unchanged */}
+      <div className={`hidden sm:grid ${DRILL_GRID_4} items-baseline`}>
+        <div className="min-w-0 [grid-column:1] [grid-row:1]" style={{ paddingLeft: indent * 12 }}>
+          <div className="flex items-start text-[15px] leading-[1.25]">
+            {amber && <AmberDot />}
+            <span className={`break-words ${amber ? "font-bold" : ""}`} style={amberStyle}>{name}</span>
+          </div>
+        </div>
+        <div className="[grid-column:2] [grid-row:1] truncate text-[12px] text-muted-foreground tabular-nums">
+          {inv}
+        </div>
+        <div className={`num [grid-column:3] [grid-row:1] text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`} style={amberStyle}>
+          {amount}
+        </div>
+        <div className="num [grid-column:4] [grid-row:1] text-right text-[13px] text-muted-foreground tabular-nums">
+          {vat === "" || vat === undefined ? "" : vat}
+        </div>
+        {sub && (
+          <div
+            className="mt-0.5 text-[13px] leading-[1.35] text-muted-foreground [grid-column:1/3] [grid-row:2]"
+            style={{ paddingLeft: indent * 12 }}
           >
-            {name}
-          </span>
-        </div>
+            {sub}
+          </div>
+        )}
       </div>
-      <div className="[grid-column:2] [grid-row:1] truncate text-[12px] text-muted-foreground tabular-nums">
-        {inv}
-      </div>
-      <div
-        className={`num [grid-column:3] [grid-row:1] text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`}
-        style={amber ? { color: "var(--amber-fg)" } : undefined}
-      >
-        {amount}
-      </div>
-      <div className="num [grid-column:4] [grid-row:1] text-right text-[13px] text-muted-foreground tabular-nums">
-        {vat === "" || vat === undefined ? "" : (typeof vat === "string" || typeof vat === "number") ? vat : vat}
-      </div>
-      {sub && (
-        <div
-          className="mt-0.5 text-[13px] leading-[1.35] text-muted-foreground [grid-column:1/3] [grid-row:2]"
-          style={{ paddingLeft: indent * 12 }}
-        >
-          {sub}
-        </div>
-      )}
     </div>
   );
 }
 
-/** 3-column detail row for revenue drills (except sponsorship). */
 function DrillRow3({
   name, amount, vat, amber,
 }: {
   name: React.ReactNode; amount: React.ReactNode; vat: React.ReactNode; amber?: boolean;
 }) {
+  const amberStyle = amber ? { color: "var(--amber-fg)" } : undefined;
   return (
-    <div className={`${DRILL_GRID_3} items-baseline border-t border-dashed border-hairline py-[10px]`}>
-      <div className="min-w-0">
-        <div className="flex items-start text-[15px] leading-[1.25]">
+    <div className="border-t border-dashed border-hairline py-[10px]">
+      {/* Mobile stacked */}
+      <div className="sm:hidden">
+        <div className="flex items-start text-[15px] leading-[1.25] text-ink">
           {amber && <AmberDot />}
-          <span
-            className={`break-words ${amber ? "font-bold" : ""}`}
-            style={amber ? { color: "var(--amber-fg)" } : undefined}
-          >
-            {name}
-          </span>
+          <span className={`break-words ${amber ? "font-bold" : ""}`} style={amberStyle}>{name}</span>
+        </div>
+        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto_60px] items-baseline gap-x-3">
+          <div />
+          <div className={`num text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`} style={amberStyle}>
+            {amount}
+          </div>
+          <div className="num text-right text-[12px] text-muted-foreground tabular-nums">{vat}</div>
         </div>
       </div>
-      <div
-        className={`num text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`}
-        style={amber ? { color: "var(--amber-fg)" } : undefined}
-      >
-        {amount}
+      {/* Desktop grid — unchanged */}
+      <div className={`hidden sm:grid ${DRILL_GRID_3} items-baseline`}>
+        <div className="min-w-0">
+          <div className="flex items-start text-[15px] leading-[1.25]">
+            {amber && <AmberDot />}
+            <span className={`break-words ${amber ? "font-bold" : ""}`} style={amberStyle}>{name}</span>
+          </div>
+        </div>
+        <div className={`num text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`} style={amberStyle}>
+          {amount}
+        </div>
+        <div className="num text-right text-[13px] text-muted-foreground tabular-nums">{vat}</div>
       </div>
-      <div className="num text-right text-[13px] text-muted-foreground tabular-nums">{vat}</div>
     </div>
   );
 }
+
 
 function invLabel(inv: string | null) {
   return inv ?? "none";
@@ -251,7 +281,7 @@ function SectionTotal({
   label, amount, vat, head, extra, showVat = true,
 }: { label: string; amount: number; vat?: number | null; head?: number; extra?: React.ReactNode; showVat?: boolean }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 border-t border-ink pt-3 pb-3">
+    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 px-3 border-t border-ink pt-3 pb-3">
       <div className="flex items-baseline flex-wrap gap-x-2">
         <span className="text-[13px] font-bold uppercase tracking-wider text-ink">{label}</span>
         {extra}
@@ -273,7 +303,7 @@ function Milestone({
   label, amount, head, marginBase, vat, extra,
 }: { label: string; amount: number; head: number; marginBase?: number; vat?: number; extra?: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 border-t-2 border-ink pt-4 pb-4"
+    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 px-3 border-t-2 border-ink pt-4 pb-4"
          style={{ borderTopColor: "var(--ink)" }}>
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span className="text-[14px] font-extrabold uppercase tracking-wider text-ink">{label}</span>
@@ -299,7 +329,7 @@ function HeroMilestone({
   label, amount, head, marginBase,
 }: { label: string; amount: number; head: number; marginBase?: number }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 pt-5 pb-4"
+    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 px-3 pt-5 pb-4"
          style={{ borderTop: "3px solid var(--magenta)" }}>
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span className="text-[14px] font-extrabold uppercase tracking-wider text-ink">{label}</span>
@@ -547,19 +577,21 @@ function EventSheet() {
   const inputClaimed = event.vat_return.input_claimed;
   const inputGap = inputClaimed === null ? null : inputVatOnBills - inputClaimed;
 
-  // App-bar right slot fades in once the H1 has scrolled above the bar.
+  // App-bar right slot fades in once the H1's bottom scrolls above the 52px bar.
   const h1Ref = useRef<HTMLHeadingElement | null>(null);
   const [showBarTitle, setShowBarTitle] = useState(false);
   useEffect(() => {
-    const el = h1Ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => setShowBarTitle(!entry.isIntersecting),
-      { rootMargin: "-56px 0px 0px 0px", threshold: 0 },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
+    const onScroll = () => {
+      const el = h1Ref.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setShowBarTitle(rect.bottom < 52);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
 
 
   return (
@@ -591,7 +623,7 @@ function EventSheet() {
 
         {/* Ladder */}
         <section>
-          <SheetHeader label="Revenue — VAT-inclusive" />
+          <SheetHeader label="Revenue" sublabel="VAT-inclusive" />
           {(["ticket_sales", "bar_sales", "sponsorship", "tables_other"] as const).map((cat) => {
             const b = revBy[cat];
             const pending = pendingRevenueCount(event, cat);
@@ -672,7 +704,7 @@ function EventSheet() {
 
         {/* VAT — BRA */}
         <section>
-          <SheetHeader label="VAT — Barbados Revenue Authority" showVat={false} />
+          <SheetHeader label="VAT — BRA" sublabel="Barbados Revenue Authority" showVat={false} />
 
           {/* Output */}
           <ExpandableCategory
@@ -779,21 +811,27 @@ function EventSheet() {
 }
 
 
-function SheetHeader({ label, caption, showVat = true }: { label: string; caption?: string; showVat?: boolean }) {
+function SheetHeader({ label, sublabel, caption, showVat = true }: { label: string; sublabel?: string; caption?: string; showVat?: boolean }) {
   return (
     <>
       <div
         className="mt-11 grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 px-3 py-2.5"
         style={{ backgroundColor: "var(--panel)" }}
       >
-        <div className="text-[12px] font-bold uppercase text-ink" style={{ letterSpacing: "0.08em" }}>{label}</div>
-        <div className="text-right text-[11px] uppercase text-muted-foreground" style={{ letterSpacing: "0.06em" }}>
+        <div className="min-w-0">
+          <div className="text-[12px] font-bold uppercase text-ink whitespace-nowrap" style={{ letterSpacing: "0.04em" }}>{label}</div>
+          {sublabel && (
+            <div className="mt-0.5 text-[11px] uppercase text-muted-foreground whitespace-nowrap" style={{ letterSpacing: "0.04em" }}>{sublabel}</div>
+          )}
+        </div>
+        <div className="text-right text-[11px] uppercase text-muted-foreground self-start" style={{ letterSpacing: "0.06em" }}>
           Amount
         </div>
-        <div className="text-right text-[11px] uppercase text-muted-foreground" style={{ letterSpacing: "0.06em" }}>
+        <div className="text-right text-[11px] uppercase text-muted-foreground self-start" style={{ letterSpacing: "0.06em" }}>
           {showVat ? "VAT" : ""}
         </div>
       </div>
+
       {caption && (
         <p className="mt-2 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">{caption}</p>
       )}
