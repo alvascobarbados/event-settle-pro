@@ -19,18 +19,18 @@ export const Route = createFileRoute("/")({
 function EventsIndex() {
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto w-full max-w-[680px] px-5 pt-10 pb-24">
+      <div className="mx-auto w-full max-w-[680px] px-5 pt-8 pb-24">
         <header className="mb-10 flex items-center justify-between">
-          <Wordmark className="text-2xl" />
+          <Wordmark className="text-lg" />
           <Link
             to="/vendors"
-            className="text-[13px] font-medium text-muted-foreground hover:text-ink"
+            className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground hover:text-ink"
           >
             Vendors ›
           </Link>
         </header>
 
-        <h1 className="text-[28px] font-bold tracking-tight text-ink">Events</h1>
+        <h1 className="text-[30px] font-extrabold tracking-tight text-ink">Events</h1>
         <p className="mt-1 text-[13px] text-muted-foreground">
           One page per event. Bills are the atom; the sheet is a computed view.
         </p>
@@ -38,24 +38,33 @@ function EventsIndex() {
         <ul className="mt-8 divide-y divide-hairline border-y border-hairline">
           {EVENTS.map((e) => {
             const np = netProfit(e).amount;
-            const cash = cashResult(e);
+            const mid = e.state === "mid-settlement";
             return (
               <li key={e.id}>
                 <Link
                   to="/event/$id"
                   params={{ id: e.id }}
-                  className="grid grid-cols-[1fr_auto] items-baseline gap-4 py-5 hover:bg-panel"
+                  className="grid grid-cols-[1fr_auto] items-baseline gap-4 py-5 transition-colors hover:bg-panel active:bg-panel"
                 >
                   <div className="min-w-0">
-                    <div className="text-[17px] font-semibold text-ink">{e.name}</div>
-                    <div className="mt-0.5 text-[12px] text-muted-foreground">
+                    <div className="flex items-center gap-2 text-[17px] font-semibold text-ink">
+                      {mid && (
+                        <span
+                          aria-hidden
+                          className="inline-block h-[7px] w-[7px] rounded-full"
+                          style={{ backgroundColor: "var(--magenta)" }}
+                        />
+                      )}
+                      <span>{e.name}</span>
+                    </div>
+                    <div className="mt-1 text-[12px] text-muted-foreground">
                       {fmtDate(e.date)} · headcount {e.headcount.toLocaleString()}
-                      {e.state === "mid-settlement" ? " · mid-settlement" : " · settled"}
+                      {mid ? " · mid-settlement" : " · settled"}
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="num text-[17px] font-semibold text-ink">{fmt(np)}</div>
-                    <div className="mt-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+                    <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                       net profit
                     </div>
                   </div>
@@ -65,7 +74,7 @@ function EventsIndex() {
           })}
         </ul>
 
-        <p className="mt-8 text-[12px] text-muted-foreground">
+        <p className="mt-8 text-[12px] italic text-muted-foreground">
           Tap an event to open its Performance sheet.
         </p>
       </div>
