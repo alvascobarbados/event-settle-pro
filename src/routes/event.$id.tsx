@@ -178,41 +178,74 @@ function invLabel(inv: string | null) {
 /* ---------- section totals ---------- */
 
 function SectionTotal({
-  label, amount, vat, head, extra,
-}: { label: string; amount: number; vat?: number | null; head?: number; extra?: React.ReactNode }) {
+  label, amount, vat, head, extra, showVat = true,
+}: { label: string; amount: number; vat?: number | null; head?: number; extra?: React.ReactNode; showVat?: boolean }) {
   return (
-    <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 border-t-[1.5px] border-ink py-3">
-      <div className="flex items-baseline">
-        <span className="text-[12px] font-bold uppercase tracking-wider text-ink">{label}</span>
+    <div className="grid grid-cols-[minmax(0,1fr)_96px_64px] items-baseline gap-x-3 border-t border-ink pt-3 pb-3">
+      <div className="flex items-baseline flex-wrap gap-x-2">
+        <span className="text-[13px] font-bold uppercase tracking-wider text-ink">{label}</span>
         {extra}
-        {head !== undefined && <PerHead value={amount} head={head} />}
+        {head !== undefined && (
+          <span className="num text-[12px] font-normal text-muted-foreground">
+            {fmt(amount / head)}/head
+          </span>
+        )}
       </div>
-      <div className="num text-[15px] font-bold text-ink">{fmt(amount)}</div>
-      <div className="num min-w-[64px] text-right text-[13px] text-muted-foreground">
-        {vat === undefined ? "" : vat === null ? "—" : fmt(vat)}
+      <div className="num text-right text-[17px] font-bold text-ink">{fmt(amount)}</div>
+      <div className="num text-right text-[13px] text-muted-foreground">
+        {!showVat || vat === undefined || vat === null ? "" : fmt(vat)}
       </div>
     </div>
   );
 }
 
 function Milestone({
-  label, amount, head, marginBase, magenta, extra,
-}: { label: string; amount: number; head: number; marginBase?: number; magenta?: boolean; extra?: React.ReactNode }) {
+  label, amount, head, marginBase, vat, extra,
+}: { label: string; amount: number; head: number; marginBase?: number; vat?: number; extra?: React.ReactNode }) {
   return (
-    <div className={`grid grid-cols-[1fr_auto] items-baseline gap-x-3 py-4 ${magenta ? "border-t-[2.5px]" : "border-t-2"}`}
-         style={{ borderTopColor: magenta ? "var(--magenta)" : "var(--ink)" }}>
+    <div className="grid grid-cols-[minmax(0,1fr)_96px_64px] items-baseline gap-x-3 border-t-2 border-ink pt-4 pb-4"
+         style={{ borderTopColor: "var(--ink)" }}>
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <span className="text-[13px] font-extrabold uppercase tracking-wider text-ink">{label}</span>
+        <span className="text-[14px] font-extrabold uppercase tracking-wider text-ink">{label}</span>
         {marginBase !== undefined && marginBase !== 0 && (
-          <span className="num text-[11px] text-muted-foreground">{fmtPct(amount / marginBase)}</span>
+          <span className="num text-[12px] font-normal text-muted-foreground">{fmtPct(amount / marginBase)}</span>
         )}
-        <PerHead value={amount} head={head} />
+        {head > 0 && (
+          <span className="num text-[12px] font-normal text-muted-foreground">
+            {fmt(amount / head)}/head
+          </span>
+        )}
         {extra}
       </div>
-      <div className={`num text-[19px] font-extrabold ${magenta ? "" : "text-ink"}`}
-           style={magenta ? { color: "var(--magenta)" } : undefined}>
+      <div className="num text-right text-[24px] font-extrabold text-ink">{fmt(amount)}</div>
+      <div className="num text-right text-[13px] text-muted-foreground">
+        {vat === undefined ? "" : fmt(vat)}
+      </div>
+    </div>
+  );
+}
+
+function HeroMilestone({
+  label, amount, head, marginBase,
+}: { label: string; amount: number; head: number; marginBase?: number }) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_96px_64px] items-baseline gap-x-3 pt-5 pb-4"
+         style={{ borderTop: "3px solid var(--magenta)" }}>
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <span className="text-[14px] font-extrabold uppercase tracking-wider text-ink">{label}</span>
+        {marginBase !== undefined && marginBase !== 0 && (
+          <span className="num text-[12px] font-normal text-muted-foreground">{fmtPct(amount / marginBase)}</span>
+        )}
+        {head > 0 && (
+          <span className="num text-[12px] font-normal text-muted-foreground">
+            {fmt(amount / head)}/head
+          </span>
+        )}
+      </div>
+      <div className="num text-right text-[28px] font-extrabold" style={{ color: "var(--magenta)" }}>
         {fmt(amount)}
       </div>
+      <div />
     </div>
   );
 }
