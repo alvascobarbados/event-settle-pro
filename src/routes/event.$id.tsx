@@ -1,6 +1,7 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { Fragment, useMemo, useState } from "react";
-import { Wordmark } from "@/components/setl/Wordmark";
+import { createFileRoute, notFound } from "@tanstack/react-router";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { AppShell, EventBarSlot } from "@/components/setl/AppShell";
+
 import { getEvent, type EventRecord, type Bill, type BillLine } from "@/lib/setl-data";
 import { REVENUE_LABELS, COST_LABELS, SUB_LABELS } from "@/lib/setl-data";
 import {
@@ -546,23 +547,30 @@ function EventSheet() {
   const inputClaimed = event.vat_return.input_claimed;
   const inputGap = inputClaimed === null ? null : inputVatOnBills - inputClaimed;
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto w-full max-w-[680px] px-5 pt-8 pb-24">
-        {/* Header */}
-        <header className="flex items-center justify-between">
-          <Wordmark className="text-lg" />
-          <div className="text-[12px] text-muted-foreground">
-            <Link to="/" className="hover:text-ink">Events</Link>
-            <span className="mx-1.5">/</span>
-            <span className="text-ink">{event.name}</span>
-          </div>
-        </header>
+  // App-bar right slot fades in once the H1 has scrolled above the bar.
+  const h1Ref = useRef<HTMLHeadingElement | null>(null);
+  const [showBarTitle, setShowBarTitle] = useState(false);
+  useEffect(() => {
+    const el = h1Ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setShowBarTitle(!entry.isIntersecting),
+      { rootMargin: "-56px 0px 0px 0px", threshold: 0 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
-        <h1 className="mt-6 text-[30px] font-extrabold tracking-tight text-ink">{event.name}</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">
-          {fmtDate(event.date)} · {event.venue} · headcount {event.headcount.toLocaleString()} ({event.comps} comps)
-        </p>
+
+  return (
+    <AppShell rightSlot={showBarTitle ? <EventBarSlot name={event.name} netProfitAmount={np.amount} /> : undefined}>
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto w-full max-w-[680px] px-5 pt-6 pb-24">
+          <h1 ref={h1Ref} className="text-[30px] font-extrabold tracking-tight text-ink">{event.name}</h1>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            {fmtDate(event.date)} · {event.venue} · headcount {event.headcount.toLocaleString()} ({event.comps} comps)
+          </p>
+
 
         <StatusStrip event={event} />
 
@@ -761,13 +769,15 @@ function EventSheet() {
           <SectionTotal label="Cash result after settlement" amount={cash} head={head} showVat={false} />
         </section>
 
-        <p className="mt-10 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">
-          All figures BBD. Every number on this page is derived from bill lines and revenue entries — nothing is written by hand.
-        </p>
+          <p className="mt-10 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">
+            All figures BBD. Every number on this page is derived from bill lines and revenue entries — nothing is written by hand.
+          </p>
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
+
 
 function SheetHeader({ label, caption, showVat = true }: { label: string; caption?: string; showVat?: boolean }) {
   return (
