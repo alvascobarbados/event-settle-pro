@@ -322,20 +322,29 @@ function StatusStrip({ event }: { event: EventRecord }) {
   const pay = toPay(event);
   const net = collect - pay;
   return (
-    <div className="my-6 grid grid-cols-3 gap-2">
-      <StripCard label="To collect" value={collect} amber={collect > 0} />
-      <StripCard label="To pay" value={pay} amber={pay > 0} />
-      <StripCard label="Net to settle" value={net} magenta={net < 0} />
+    <div className="my-6 grid grid-cols-3 divide-x divide-hairline border-y border-hairline">
+      <StripCell label="To collect" value={collect} amber={collect > 0} />
+      <StripCell label="To pay" value={pay} amber={pay > 0} />
+      <StripCell label="Net to settle" value={net} magenta={net < 0} />
     </div>
   );
 }
-function StripCard({ label, value, amber, magenta }: { label: string; value: number; amber?: boolean; magenta?: boolean }) {
+function StripCell({ label, value, amber, magenta }: { label: string; value: number; amber?: boolean; magenta?: boolean }) {
+  const color = magenta ? "var(--magenta)" : "var(--ink)";
   return (
-    <div className="rounded-md border border-hairline bg-white px-3 py-3">
+    <div className="px-3 py-3">
       <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="num mt-1 text-[16px] font-bold"
-           style={{ color: amber ? "var(--amber-fg)" : magenta ? "var(--magenta)" : "var(--ink)" }}>
-        {fmt(value)}
+      <div className="mt-1 flex items-baseline gap-1.5">
+        {amber && (
+          <span
+            aria-hidden
+            className="inline-block h-[6px] w-[6px] translate-y-[-2px] rounded-full"
+            style={{ backgroundColor: "var(--amber-fg)" }}
+          />
+        )}
+        <div className="num text-[16px] font-bold" style={{ color }}>
+          {fmt(value)}
+        </div>
       </div>
     </div>
   );
