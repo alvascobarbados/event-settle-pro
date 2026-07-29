@@ -577,19 +577,21 @@ function EventSheet() {
   const inputClaimed = event.vat_return.input_claimed;
   const inputGap = inputClaimed === null ? null : inputVatOnBills - inputClaimed;
 
-  // App-bar right slot fades in once the H1 has scrolled above the bar.
+  // App-bar right slot fades in once the H1's bottom scrolls above the 52px bar.
   const h1Ref = useRef<HTMLHeadingElement | null>(null);
   const [showBarTitle, setShowBarTitle] = useState(false);
   useEffect(() => {
-    const el = h1Ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => setShowBarTitle(!entry.isIntersecting),
-      { rootMargin: "-56px 0px 0px 0px", threshold: 0 },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
+    const onScroll = () => {
+      const el = h1Ref.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setShowBarTitle(rect.bottom < 52);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
 
 
   return (
