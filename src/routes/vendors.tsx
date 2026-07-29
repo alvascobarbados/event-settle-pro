@@ -54,18 +54,10 @@ function VendorsPage() {
   }, [selected]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto w-full max-w-[680px] px-5 pt-8 pb-24">
-        <header className="flex items-center justify-between">
-          <Wordmark className="text-lg" />
-          <div className="text-[12px] text-muted-foreground">
-            <Link to="/" className="hover:text-ink">Events</Link>
-            <span className="mx-1.5">/</span>
-            <span className="text-ink">Vendors</span>
-          </div>
-        </header>
-
-        <h1 className="mt-6 text-[28px] font-bold tracking-tight text-ink">Vendors</h1>
+    <AppShell>
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto w-full max-w-[680px] px-5 pt-6 pb-24">
+          <h1 className="text-[28px] font-bold tracking-tight text-ink">Vendors</h1>
         <p className="mt-1 text-[13px] text-muted-foreground">
           Vendor book — defaults auto-apply on bill entry.
         </p>
