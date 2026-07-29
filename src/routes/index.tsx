@@ -7,10 +7,10 @@ import { AppShell } from "@/components/setl/AppShell";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Events — SETL" },
-      { name: "description", content: "SETL events index: name, date, headcount, net profit." },
-      { property: "og:title", content: "Events — SETL" },
-      { property: "og:description", content: "Every event as one Performance sheet." },
+      { title: "Event Set" },
+      { name: "description", content: "Manage and reconcile your event performance, bills and VAT." },
+      { property: "og:title", content: "Event Set" },
+      { property: "og:description", content: "Manage and reconcile your event performance, bills and VAT." },
     ],
   }),
   component: EventsIndex,
