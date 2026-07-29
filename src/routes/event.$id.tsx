@@ -492,7 +492,7 @@ function EventSheet() {
         </section>
 
         {/* Cost of sales */}
-        <section className="mt-6">
+        <section>
           <SheetHeader label="Cost of sales" />
           <ExpandableCategory
             open={isOpen("cos-drinks")} onToggle={() => toggle("cos-drinks")}
@@ -521,7 +521,7 @@ function EventSheet() {
         </section>
 
         {/* Event costs */}
-        <section className="mt-6">
+        <section>
           <SheetHeader label="Event costs" />
           {EVENT_COST_KEYS.map((k) => {
             const b = ecBy[k];
