@@ -94,12 +94,12 @@ function CategoryRow({
   className?: string;
 }) {
   const content = (
-    <div className={`grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 py-3 ${className}`}>
+    <div className={`grid grid-cols-[minmax(0,1fr)_96px_64px] items-baseline gap-x-3 py-3 ${className}`}>
       <div className="min-w-0">
         <div className="flex items-center">
           {expandable && <Chevron open={!!open} />}
           {amber && <AmberDot />}
-          <span className={`text-[15px] ${amber ? "font-bold" : "font-medium"} text-ink`}
+          <span className={`text-[16px] ${amber ? "font-bold" : "font-medium"} text-ink`}
                 style={amber ? { color: "var(--amber-fg)" } : undefined}>
             {name}
           </span>
@@ -107,18 +107,18 @@ function CategoryRow({
         </div>
         {subline && <div className="mt-0.5 pl-[calc(1ch+0.5rem)] text-[11.5px] text-muted-foreground">{subline}</div>}
       </div>
-      <div className={`num text-[15px] ${amber ? "font-bold" : "font-medium"} tabular-nums`}
+      <div className={`num text-right text-[16px] ${amber ? "font-bold" : "font-medium"} tabular-nums`}
            style={amber ? { color: "var(--amber-fg)" } : undefined}>
         {amount}
       </div>
-      <div className="num min-w-[64px] text-right text-[13px] text-muted-foreground">{vat}</div>
+      <div className="num text-right text-[13px] text-muted-foreground">{vat}</div>
     </div>
   );
   if (expandable) {
     return (
       <button
         onClick={onToggle}
-        className="w-full text-left hairline-b border-b border-dashed border-hairline last:border-0"
+        className="w-full text-left border-b border-dashed border-hairline last:border-0"
       >
         {content}
       </button>
