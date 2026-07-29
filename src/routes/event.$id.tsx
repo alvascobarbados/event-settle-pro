@@ -754,13 +754,15 @@ function EventSheet() {
           <SectionTotal label="Cash result after settlement" amount={cash} head={head} showVat={false} />
         </section>
 
-        <p className="mt-10 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">
-          All figures BBD. Every number on this page is derived from bill lines and revenue entries — nothing is written by hand.
-        </p>
+          <p className="mt-10 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">
+            All figures BBD. Every number on this page is derived from bill lines and revenue entries — nothing is written by hand.
+          </p>
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
+
 
 function SheetHeader({ label, caption, showVat = true }: { label: string; caption?: string; showVat?: boolean }) {
   return (
