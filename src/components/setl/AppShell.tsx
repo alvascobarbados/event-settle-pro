@@ -130,18 +130,19 @@ export function EventBarSlot({
   return (
     <div className="flex items-baseline gap-2 min-w-0">
       <span
-        className="truncate text-[14px] font-semibold"
-        style={{ color: INK_FG }}
+        className="truncate text-[13px] leading-none"
+        style={{ color: BAR_FG, fontWeight: 600 }}
       >
         {name}
       </span>
       <span
-        className="num shrink-0 text-[14px] font-bold tabular-nums"
-        style={{ color: MAGENTA_TINT }}
+        className="num shrink-0 text-[13px] leading-none tabular-nums"
+        style={{ color: BAR_FG, fontWeight: 800 }}
       >
         {fmt(netProfitAmount)}
       </span>
     </div>
+
   );
 }
 
