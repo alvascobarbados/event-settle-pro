@@ -4,8 +4,10 @@ import { EVENTS } from "@/lib/setl-data";
 import { netProfit } from "@/lib/setl-compute";
 import { fmt } from "@/lib/setl-format";
 
-const INK_FG = "#FAF8F9";
-const MAGENTA_TINT = "#F06FA7";
+const BAR_FG = "#221A20"; // ink, used for everything on the magenta bar
+const BAR_BG = "#CE1663"; // magenta
+const DRAWER_FG = "#FAF8F9";
+
 
 export function AppShell({
   children,
