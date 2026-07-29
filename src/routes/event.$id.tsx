@@ -127,18 +127,26 @@ function CategoryRow({
   return <div className="border-b border-dashed border-hairline last:border-0">{content}</div>;
 }
 
-/** Drill panel wrapper (soft #FBF4F8 bg). */
+/* ---------- drill primitives ---------- */
+
+const DRILL_GRID_4 =
+  "grid grid-cols-[minmax(0,2fr)_minmax(60px,0.8fr)_minmax(90px,1fr)_minmax(64px,0.7fr)] gap-x-3";
+const DRILL_GRID_3 =
+  "grid grid-cols-[minmax(0,2.2fr)_minmax(90px,1fr)_minmax(64px,0.7fr)] gap-x-3";
+
+/** Drill panel wrapper (soft #FBF4F8 bg). No right padding so drill AMOUNT/VAT
+ *  columns share a continuous right rail with the category rows above. */
 function DrillPanel({ children }: { children: React.ReactNode }) {
   return (
     <div className="border-b border-dashed border-hairline" style={{ backgroundColor: "var(--panel)" }}>
-      <div className="px-4 py-4">{children}</div>
+      <div className="pl-4 pr-0 py-3">{children}</div>
     </div>
   );
 }
 
 function DrillHeader({ cols }: { cols: [string, string, string, string] }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_88px_96px_64px] gap-x-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className={`${DRILL_GRID_4} pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground`}>
       <div>{cols[0]}</div>
       <div>{cols[1]}</div>
       <div className="text-right">{cols[2]}</div>
@@ -147,6 +155,18 @@ function DrillHeader({ cols }: { cols: [string, string, string, string] }) {
   );
 }
 
+function DrillHeader3({ cols }: { cols: [string, string, string] }) {
+  return (
+    <div className={`${DRILL_GRID_3} pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground`}>
+      <div>{cols[0]}</div>
+      <div className="text-right">{cols[1]}</div>
+      <div className="text-right">{cols[2]}</div>
+    </div>
+  );
+}
+
+/** 4-column detail row (VENDOR | INV # | AMOUNT | VAT).
+ *  Vendor names wrap rather than truncate. The descriptor `sub` spans cols 1–2. */
 function DrillRow({
   name, sub, inv, amount, vat, amber, indent = 0,
 }: {
@@ -154,19 +174,68 @@ function DrillRow({
   amount: React.ReactNode; vat: React.ReactNode; amber?: boolean; indent?: number;
 }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_88px_96px_64px] items-baseline gap-x-3 border-t border-dashed border-hairline py-2">
-      <div className="min-w-0" style={{ paddingLeft: indent * 12 }}>
-        <div className="flex items-center text-[13px]">
+    <div className={`${DRILL_GRID_4} items-baseline border-t border-dashed border-hairline py-[10px]`}>
+      <div className="min-w-0 [grid-column:1] [grid-row:1]" style={{ paddingLeft: indent * 12 }}>
+        <div className="flex items-start text-[15px] leading-[1.25]">
           {amber && <AmberDot />}
-          <span className={`truncate ${amber ? "font-bold" : ""}`}
-                style={amber ? { color: "var(--amber-fg)" } : undefined}>{name}</span>
+          <span
+            className={`break-words ${amber ? "font-bold" : ""}`}
+            style={amber ? { color: "var(--amber-fg)" } : undefined}
+          >
+            {name}
+          </span>
         </div>
-        {sub && <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>}
       </div>
-      <div className="truncate text-[12px] text-muted-foreground">{inv}</div>
-      <div className={`num text-right text-[13px] ${amber ? "font-bold" : ""}`}
-           style={amber ? { color: "var(--amber-fg)" } : undefined}>{amount}</div>
-      <div className="num text-right text-[12px] text-muted-foreground">{vat}</div>
+      <div className="[grid-column:2] [grid-row:1] truncate text-[12px] text-muted-foreground tabular-nums">
+        {inv}
+      </div>
+      <div
+        className={`num [grid-column:3] [grid-row:1] text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`}
+        style={amber ? { color: "var(--amber-fg)" } : undefined}
+      >
+        {amount}
+      </div>
+      <div className="num [grid-column:4] [grid-row:1] text-right text-[13px] text-muted-foreground tabular-nums">
+        {vat === "" || vat === undefined ? "" : (typeof vat === "string" || typeof vat === "number") ? vat : vat}
+      </div>
+      {sub && (
+        <div
+          className="mt-0.5 text-[13px] leading-[1.35] text-muted-foreground [grid-column:1/3] [grid-row:2]"
+          style={{ paddingLeft: indent * 12 }}
+        >
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 3-column detail row for revenue drills (except sponsorship). */
+function DrillRow3({
+  name, amount, vat, amber,
+}: {
+  name: React.ReactNode; amount: React.ReactNode; vat: React.ReactNode; amber?: boolean;
+}) {
+  return (
+    <div className={`${DRILL_GRID_3} items-baseline border-t border-dashed border-hairline py-[10px]`}>
+      <div className="min-w-0">
+        <div className="flex items-start text-[15px] leading-[1.25]">
+          {amber && <AmberDot />}
+          <span
+            className={`break-words ${amber ? "font-bold" : ""}`}
+            style={amber ? { color: "var(--amber-fg)" } : undefined}
+          >
+            {name}
+          </span>
+        </div>
+      </div>
+      <div
+        className={`num text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`}
+        style={amber ? { color: "var(--amber-fg)" } : undefined}
+      >
+        {amount}
+      </div>
+      <div className="num text-right text-[13px] text-muted-foreground tabular-nums">{vat}</div>
     </div>
   );
 }
@@ -272,81 +341,125 @@ function ExpandableCategory({
 
 function RevenueDrill({ event, cat }: { event: EventRecord; cat: keyof ReturnType<typeof revenueByCategory> }) {
   const bucket = revenueByCategory(event)[cat];
-  const cols: [string, string, string, string] =
-    cat === "sponsorship" ? ["SPONSOR", "STATUS", "AMOUNT", "VAT"] : ["ITEM", "", "AMOUNT", "VAT"];
+  if (cat === "sponsorship") {
+    return (
+      <div>
+        <DrillHeader cols={["SPONSOR", "STATUS", "AMOUNT", "VAT"]} />
+        {bucket.entries.map((e) => {
+          const pending = e.status === "pending";
+          return (
+            <DrillRow key={e.id}
+              name={e.label}
+              inv={pending ? <span style={{ color: "var(--amber-fg)" }}>pending</span> : "received"}
+              amount={fmt(e.amount)}
+              vat={e.vatable ? fmt(vatWithin(e.amount)) : <span className="text-muted-foreground text-center block">—</span>}
+              amber={pending}
+            />
+          );
+        })}
+      </div>
+    );
+  }
   return (
     <div>
-      <DrillHeader cols={cols} />
-      {bucket.entries.map((e) => {
-        const pending = e.status === "pending";
-        return (
-          <DrillRow key={e.id}
-            name={e.label}
-            inv={cat === "sponsorship" ? (pending ? <span style={{ color: "var(--amber-fg)" }}>pending</span> : "received") : ""}
-            amount={fmt(e.amount)}
-            vat={e.vatable ? fmt(vatWithin(e.amount)) : <span className="text-muted-foreground">—</span>}
-            amber={pending}
-          />
-        );
-      })}
+      <DrillHeader3 cols={["ITEM", "AMOUNT", "VAT"]} />
+      {bucket.entries.map((e) => (
+        <DrillRow3 key={e.id}
+          name={e.label}
+          amount={fmt(e.amount)}
+          vat={e.vatable ? fmt(vatWithin(e.amount)) : <span className="text-muted-foreground text-center block">—</span>}
+        />
+      ))}
     </div>
   );
 }
 
-/* ---------- COS / event cost drills grouped by vendor with credits ---------- */
+/* ---------- bill drill: ONE ROW PER BILL ----------
+ * Never aggregates multiple bills from the same vendor into a single row.
+ * The only nesting allowed is a credit note indented under its parent invoice
+ * (matched by bill.parent === parent invoice number, same vendor).
+ */
+function BillDrill({ items }: { items: { line: BillLine; bill: Bill }[] }) {
+  // Fold multi-line same-bill entries into a single bill-row (rare in seed data).
+  const byBill = new Map<
+    string,
+    { bill: Bill; amount: number; vat: number; anyExplicitVat: boolean; descriptors: string[] }
+  >();
+  for (const it of items) {
+    let e = byBill.get(it.bill.id);
+    if (!e) {
+      e = { bill: it.bill, amount: 0, vat: 0, anyExplicitVat: false, descriptors: [] };
+      byBill.set(it.bill.id, e);
+    }
+    e.amount += it.line.amount;
+    e.vat += it.line.vat ?? 0;
+    if (it.line.vat !== null) e.anyExplicitVat = true;
+    if (it.line.descriptor && !e.descriptors.includes(it.line.descriptor)) e.descriptors.push(it.line.descriptor);
+  }
 
-function VendorGroupedDrill({
-  items, currency = "invoice",
-}: {
-  items: { line: BillLine; bill: Bill }[];
-  currency?: "invoice";
-}) {
-  const groups = groupByVendor(items);
+  const rows = [...byBill.values()];
+  const invoices = rows
+    .filter((r) => r.bill.kind === "invoice")
+    .sort((a, b) => b.amount - a.amount);
+  const credits = rows.filter((r) => r.bill.kind === "credit");
+  const used = new Set<string>();
+
+  const renderRow = (
+    e: (typeof rows)[number],
+    { indent = 0, isCredit = false }: { indent?: number; isCredit?: boolean } = {},
+  ) => {
+    const vatCell =
+      !e.anyExplicitVat
+        ? <span className="text-muted-foreground text-center block">—</span>
+        : isCredit
+          ? <span style={{ color: "var(--magenta)" }}>{fmt(e.vat)}</span>
+          : fmt(e.vat);
+    const amountCell = isCredit
+      ? <span style={{ color: "var(--magenta)" }}>{fmt(e.amount)}</span>
+      : fmt(e.amount);
+    return (
+      <DrillRow
+        key={e.bill.id}
+        indent={indent}
+        name={isCredit
+          ? <span className="text-muted-foreground">Credit · {e.bill.vendor}</span>
+          : e.bill.vendor}
+        sub={e.descriptors[0]}
+        inv={invLabel(e.bill.invoice)}
+        amount={amountCell}
+        vat={vatCell}
+        amber={!isCredit && e.bill.status === "unpaid"}
+      />
+    );
+  };
+
   return (
     <div>
       <DrillHeader cols={["VENDOR", "INV #", "AMOUNT", "VAT"]} />
-      {groups.map((g, i) => {
-        const hasCredit = g.creditRows.length > 0;
-        const invLine = g.invoiceRow;
-        // parent row
+      {invoices.map((inv) => {
+        const matching = credits.filter(
+          (c) =>
+            !used.has(c.bill.id) &&
+            c.bill.vendor === inv.bill.vendor &&
+            !!c.bill.parent &&
+            !!inv.bill.invoice &&
+            c.bill.parent === inv.bill.invoice,
+        );
+        matching.forEach((c) => used.add(c.bill.id));
         return (
-          <div key={i}>
-            <DrillRow
-              name={g.vendor}
-              sub={g.descriptors[0]}
-              inv={hasCredit ? "" : invLabel(g.invoice)}
-              amount={fmt(g.netAmount)}
-              vat={g.netVat === 0 && !invLine?.line.vat ? <span className="text-muted-foreground">—</span> : fmt(g.netVat)}
-              amber={g.hasUnpaid}
-            />
-            {hasCredit && invLine && (
-              <>
-                <DrillRow
-                  indent={1}
-                  name={<span className="text-muted-foreground">Invoice</span>}
-                  inv={invLabel(invLine.bill.invoice)}
-                  amount={fmt(invLine.line.amount)}
-                  vat={invLine.line.vat === null ? <span className="text-muted-foreground">—</span> : fmt(invLine.line.vat)}
-                />
-                {g.creditRows.map((c, j) => (
-                  <DrillRow
-                    key={j}
-                    indent={1}
-                    name={<span className="text-muted-foreground">Credit</span>}
-                    inv={invLabel(c.bill.invoice)}
-                    amount={<span style={{ color: "var(--magenta)" }}>{fmt(c.line.amount)}</span>}
-                    vat={c.line.vat === null ? <span className="text-muted-foreground">—</span>
-                      : <span style={{ color: "var(--magenta)" }}>{fmt(c.line.vat)}</span>}
-                  />
-                ))}
-              </>
-            )}
-          </div>
+          <Fragment key={inv.bill.id}>
+            {renderRow(inv)}
+            {matching.map((c) => renderRow(c, { indent: 1, isCredit: true }))}
+          </Fragment>
         );
       })}
+      {credits
+        .filter((c) => !used.has(c.bill.id))
+        .map((c) => renderRow(c, { isCredit: true }))}
     </div>
   );
 }
+
 
 /* ---------- header + strip ---------- */
 
