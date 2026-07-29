@@ -704,7 +704,7 @@ function EventSheet() {
 
         {/* VAT — BRA */}
         <section>
-          <SheetHeader label="VAT — Barbados Revenue Authority" showVat={false} />
+          <SheetHeader label="VAT — BRA" sublabel="Barbados Revenue Authority" showVat={false} />
 
           {/* Output */}
           <ExpandableCategory
