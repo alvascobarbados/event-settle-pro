@@ -1,8 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { EVENTS, VENDOR_DEFAULTS, COST_LABELS, SUB_LABELS } from "@/lib/setl-data";
 import { fmt, fmtDate } from "@/lib/setl-format";
-import { Wordmark } from "@/components/setl/Wordmark";
+import { AppShell } from "@/components/setl/AppShell";
+
 
 export const Route = createFileRoute("/vendors")({
   head: () => ({
