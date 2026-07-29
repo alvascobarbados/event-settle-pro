@@ -94,12 +94,12 @@ function CategoryRow({
   className?: string;
 }) {
   const content = (
-    <div className={`grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 py-3 ${className}`}>
+    <div className={`grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 py-3 ${className}`}>
       <div className="min-w-0">
         <div className="flex items-center">
           {expandable && <Chevron open={!!open} />}
           {amber && <AmberDot />}
-          <span className={`text-[15px] ${amber ? "font-bold" : "font-medium"} text-ink`}
+          <span className={`text-[16px] ${amber ? "font-bold" : "font-medium"} text-ink`}
                 style={amber ? { color: "var(--amber-fg)" } : undefined}>
             {name}
           </span>
@@ -107,18 +107,18 @@ function CategoryRow({
         </div>
         {subline && <div className="mt-0.5 pl-[calc(1ch+0.5rem)] text-[11.5px] text-muted-foreground">{subline}</div>}
       </div>
-      <div className={`num text-[15px] ${amber ? "font-bold" : "font-medium"} tabular-nums`}
+      <div className={`num text-right text-[16px] ${amber ? "font-bold" : "font-medium"} tabular-nums`}
            style={amber ? { color: "var(--amber-fg)" } : undefined}>
         {amount}
       </div>
-      <div className="num min-w-[64px] text-right text-[13px] text-muted-foreground">{vat}</div>
+      <div className="num text-right text-[13px] text-muted-foreground">{vat}</div>
     </div>
   );
   if (expandable) {
     return (
       <button
         onClick={onToggle}
-        className="w-full text-left hairline-b border-b border-dashed border-hairline last:border-0"
+        className="w-full text-left border-b border-dashed border-hairline last:border-0"
       >
         {content}
       </button>
@@ -178,41 +178,74 @@ function invLabel(inv: string | null) {
 /* ---------- section totals ---------- */
 
 function SectionTotal({
-  label, amount, vat, head, extra,
-}: { label: string; amount: number; vat?: number | null; head?: number; extra?: React.ReactNode }) {
+  label, amount, vat, head, extra, showVat = true,
+}: { label: string; amount: number; vat?: number | null; head?: number; extra?: React.ReactNode; showVat?: boolean }) {
   return (
-    <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 border-t-[1.5px] border-ink py-3">
-      <div className="flex items-baseline">
-        <span className="text-[12px] font-bold uppercase tracking-wider text-ink">{label}</span>
+    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 border-t border-ink pt-3 pb-3">
+      <div className="flex items-baseline flex-wrap gap-x-2">
+        <span className="text-[13px] font-bold uppercase tracking-wider text-ink">{label}</span>
         {extra}
-        {head !== undefined && <PerHead value={amount} head={head} />}
+        {head !== undefined && (
+          <span className="num text-[12px] font-normal text-muted-foreground">
+            {fmt(amount / head)}/head
+          </span>
+        )}
       </div>
-      <div className="num text-[15px] font-bold text-ink">{fmt(amount)}</div>
-      <div className="num min-w-[64px] text-right text-[13px] text-muted-foreground">
-        {vat === undefined ? "" : vat === null ? "—" : fmt(vat)}
+      <div className="num text-right text-[17px] font-bold text-ink">{fmt(amount)}</div>
+      <div className="num text-right text-[13px] text-muted-foreground">
+        {!showVat || vat === undefined || vat === null ? "" : fmt(vat)}
       </div>
     </div>
   );
 }
 
 function Milestone({
-  label, amount, head, marginBase, magenta, extra,
-}: { label: string; amount: number; head: number; marginBase?: number; magenta?: boolean; extra?: React.ReactNode }) {
+  label, amount, head, marginBase, vat, extra,
+}: { label: string; amount: number; head: number; marginBase?: number; vat?: number; extra?: React.ReactNode }) {
   return (
-    <div className={`grid grid-cols-[1fr_auto] items-baseline gap-x-3 py-4 ${magenta ? "border-t-[2.5px]" : "border-t-2"}`}
-         style={{ borderTopColor: magenta ? "var(--magenta)" : "var(--ink)" }}>
+    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 border-t-2 border-ink pt-4 pb-4"
+         style={{ borderTopColor: "var(--ink)" }}>
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <span className="text-[13px] font-extrabold uppercase tracking-wider text-ink">{label}</span>
+        <span className="text-[14px] font-extrabold uppercase tracking-wider text-ink">{label}</span>
         {marginBase !== undefined && marginBase !== 0 && (
-          <span className="num text-[11px] text-muted-foreground">{fmtPct(amount / marginBase)}</span>
+          <span className="num text-[12px] font-normal text-muted-foreground">{fmtPct(amount / marginBase)}</span>
         )}
-        <PerHead value={amount} head={head} />
+        {head > 0 && (
+          <span className="num text-[12px] font-normal text-muted-foreground">
+            {fmt(amount / head)}/head
+          </span>
+        )}
         {extra}
       </div>
-      <div className={`num text-[19px] font-extrabold ${magenta ? "" : "text-ink"}`}
-           style={magenta ? { color: "var(--magenta)" } : undefined}>
+      <div className="num text-right text-[24px] font-extrabold text-ink">{fmt(amount)}</div>
+      <div className="num text-right text-[13px] text-muted-foreground">
+        {vat === undefined ? "" : fmt(vat)}
+      </div>
+    </div>
+  );
+}
+
+function HeroMilestone({
+  label, amount, head, marginBase,
+}: { label: string; amount: number; head: number; marginBase?: number }) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 pt-5 pb-4"
+         style={{ borderTop: "3px solid var(--magenta)" }}>
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <span className="text-[14px] font-extrabold uppercase tracking-wider text-ink">{label}</span>
+        {marginBase !== undefined && marginBase !== 0 && (
+          <span className="num text-[12px] font-normal text-muted-foreground">{fmtPct(amount / marginBase)}</span>
+        )}
+        {head > 0 && (
+          <span className="num text-[12px] font-normal text-muted-foreground">
+            {fmt(amount / head)}/head
+          </span>
+        )}
+      </div>
+      <div className="num text-right text-[28px] font-extrabold" style={{ color: "var(--magenta)" }}>
         {fmt(amount)}
       </div>
+      <div />
     </div>
   );
 }
@@ -436,7 +469,7 @@ function EventSheet() {
         </div>
 
         {/* Ladder */}
-        <section className="mt-4">
+        <section>
           <SheetHeader label="Revenue — VAT-inclusive" />
           {(["ticket_sales", "bar_sales", "sponsorship", "tables_other"] as const).map((cat) => {
             const b = revBy[cat];
@@ -455,20 +488,11 @@ function EventSheet() {
               </ExpandableCategory>
             );
           })}
-          <div className="border-t-2 border-ink">
-            <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 py-4">
-              <div className="flex items-baseline">
-                <span className="text-[13px] font-extrabold uppercase tracking-wider text-ink">Total revenue</span>
-                <PerHead value={rev.amount} head={head} />
-              </div>
-              <div className="num text-[17px] font-extrabold text-ink">{fmt(rev.amount)}</div>
-              <div className="num min-w-[64px] text-right text-[13px] text-muted-foreground">{fmt(rev.vat)}</div>
-            </div>
-          </div>
+          <Milestone label="Total revenue" amount={rev.amount} head={head} vat={rev.vat} />
         </section>
 
         {/* Cost of sales */}
-        <section className="mt-6">
+        <section>
           <SheetHeader label="Cost of sales" />
           <ExpandableCategory
             open={isOpen("cos-drinks")} onToggle={() => toggle("cos-drinks")}
@@ -497,7 +521,7 @@ function EventSheet() {
         </section>
 
         {/* Event costs */}
-        <section className="mt-6">
+        <section>
           <SheetHeader label="Event costs" />
           {EVENT_COST_KEYS.map((k) => {
             const b = ecBy[k];
@@ -526,8 +550,8 @@ function EventSheet() {
         </section>
 
         {/* VAT — BRA */}
-        <section className="mt-6">
-          <SheetHeader label="VAT — Barbados Revenue Authority" />
+        <section>
+          <SheetHeader label="VAT — Barbados Revenue Authority" showVat={false} />
 
           {/* Output */}
           <ExpandableCategory
@@ -536,7 +560,7 @@ function EventSheet() {
             badge={outputGap !== null && Math.abs(outputGap) > 0.02 && !isOpen("vat-output")
               ? <AmberBadge>Gap {fmt(Math.abs(outputGap))}</AmberBadge> : null}
             amount={fmt(outputVatWithin)}
-            vat={<span className="text-muted-foreground">—</span>}
+            vat=""
           >
             <DrillHeader cols={["SOURCE", "", "AMOUNT", ""]} />
             {(["ticket_sales", "bar_sales", "sponsorship", "tables_other"] as const).map((c) => (
@@ -562,7 +586,7 @@ function EventSheet() {
             badge={inputGap !== null && Math.abs(inputGap) > 0.02 && !isOpen("vat-input")
               ? <AmberBadge>Gap {fmt(Math.abs(inputGap))}</AmberBadge> : null}
             amount={fmt(inputVatOnBills)}
-            vat={<span className="text-muted-foreground">—</span>}
+            vat=""
           >
             <DrillHeader cols={["SOURCE", "", "AMOUNT", ""]} />
             <DrillRow name={COST_LABELS.drinks} inv="" amount={fmt(cosBy.drinks.vat)} vat="" />
@@ -588,48 +612,43 @@ function EventSheet() {
             <CategoryRow
               name="Deposits & prepayments"
               amount={fmt(-event.vat_return.deposits)}
-              vat={<span className="text-muted-foreground">—</span>}
+              vat=""
             />
           )}
 
           {/* Net VAT payable */}
           <CategoryRow
             name={<span>Net VAT payable — BRA</span>}
-            subline={event.vat_return.note}
             amber={event.vat_return.status === "due"}
             amount={fmt(event.vat_return.net_payable)}
             vat=""
           />
+          {event.vat_return.note && (
+            <p className="mt-3 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">
+              {event.vat_return.note}
+            </p>
+          )}
 
-          <Milestone
-            label="Net profit" amount={np.amount} head={head} marginBase={rev.amount} magenta
-          />
+          <div className="mt-2">
+            <HeroMilestone label="Net profit" amount={np.amount} head={head} marginBase={rev.amount} />
+          </div>
         </section>
 
         {/* Settlement */}
-        <section className="mt-6">
-          <SheetHeader label="Settlement — cash items outside this event's P&L" />
+        <section>
+          <SheetHeader label="Settlement" caption="Cash items outside this event's P&L" showVat={false} />
           {event.settlement_items.map((s: import("@/lib/setl-data").SettlementItem, i: number) => (
             <CategoryRow
               key={i} name={s.label}
               amber={s.status === "due"}
               amount={fmt(s.amount)}
-              vat={<span className="text-muted-foreground">—</span>}
+              vat=""
             />
           ))}
-          <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 border-t-2 border-ink py-4">
-            <div className="flex items-baseline">
-              <span className="text-[13px] font-extrabold uppercase tracking-wider text-ink">
-                Cash result after settlement
-              </span>
-              <PerHead value={cash} head={head} />
-            </div>
-            <div className="num text-[17px] font-extrabold text-ink">{fmt(cash)}</div>
-            <div />
-          </div>
+          <SectionTotal label="Cash result after settlement" amount={cash} head={head} showVat={false} />
         </section>
 
-        <p className="mt-10 text-[11px] text-muted-foreground">
+        <p className="mt-10 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">
           All figures BBD. Every number on this page is derived from bill lines and revenue entries — nothing is written by hand.
         </p>
       </div>
@@ -637,12 +656,25 @@ function EventSheet() {
   );
 }
 
-function SheetHeader({ label }: { label: string }) {
+function SheetHeader({ label, caption, showVat = true }: { label: string; caption?: string; showVat?: boolean }) {
   return (
-    <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 pb-2">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Amount</div>
-      <div className="min-w-[64px] text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">VAT</div>
-    </div>
+    <>
+      <div
+        className="mt-11 grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 px-3 py-2.5"
+        style={{ backgroundColor: "var(--panel)" }}
+      >
+        <div className="text-[12px] font-bold uppercase text-ink" style={{ letterSpacing: "0.08em" }}>{label}</div>
+        <div className="text-right text-[11px] uppercase text-muted-foreground" style={{ letterSpacing: "0.06em" }}>
+          Amount
+        </div>
+        <div className="text-right text-[11px] uppercase text-muted-foreground" style={{ letterSpacing: "0.06em" }}>
+          {showVat ? "VAT" : ""}
+        </div>
+      </div>
+      {caption && (
+        <p className="mt-2 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">{caption}</p>
+      )}
+      <div className="h-6" />
+    </>
   );
 }
