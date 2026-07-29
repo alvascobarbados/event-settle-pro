@@ -469,7 +469,7 @@ function EventSheet() {
         </div>
 
         {/* Ladder */}
-        <section className="mt-4">
+        <section>
           <SheetHeader label="Revenue — VAT-inclusive" />
           {(["ticket_sales", "bar_sales", "sponsorship", "tables_other"] as const).map((cat) => {
             const b = revBy[cat];
@@ -488,16 +488,7 @@ function EventSheet() {
               </ExpandableCategory>
             );
           })}
-          <div className="border-t-2 border-ink">
-            <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 py-4">
-              <div className="flex items-baseline">
-                <span className="text-[13px] font-extrabold uppercase tracking-wider text-ink">Total revenue</span>
-                <PerHead value={rev.amount} head={head} />
-              </div>
-              <div className="num text-[17px] font-extrabold text-ink">{fmt(rev.amount)}</div>
-              <div className="num min-w-[64px] text-right text-[13px] text-muted-foreground">{fmt(rev.vat)}</div>
-            </div>
-          </div>
+          <Milestone label="Total revenue" amount={rev.amount} head={head} vat={rev.vat} />
         </section>
 
         {/* Cost of sales */}
