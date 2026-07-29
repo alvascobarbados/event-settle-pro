@@ -821,7 +821,7 @@ function SheetHeader({ label, sublabel, caption, showVat = true }: { label: stri
         <div className="min-w-0">
           <div className="text-[12px] font-bold uppercase text-ink whitespace-nowrap" style={{ letterSpacing: "0.04em" }}>{label}</div>
           {sublabel && (
-            <div className="mt-0.5 text-[11px] uppercase text-muted-foreground" style={{ letterSpacing: "0.04em" }}>{sublabel}</div>
+            <div className="mt-0.5 text-[11px] uppercase text-muted-foreground whitespace-nowrap" style={{ letterSpacing: "0.04em" }}>{sublabel}</div>
           )}
         </div>
         <div className="text-right text-[11px] uppercase text-muted-foreground self-start" style={{ letterSpacing: "0.06em" }}>
