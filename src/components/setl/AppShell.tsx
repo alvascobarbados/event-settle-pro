@@ -203,7 +203,7 @@ function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
         className="fixed inset-y-0 left-0 z-[60] flex w-[280px] flex-col transition-transform duration-200 ease-out"
         style={{
           backgroundColor: "var(--ink)",
-          color: INK_FG,
+          color: DRAWER_FG,
           transform: open ? "translateX(0)" : "translateX(-100%)",
           paddingTop: "env(safe-area-inset-top)",
           paddingLeft: "env(safe-area-inset-left)",
@@ -211,7 +211,7 @@ function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
         }}
       >
         <div className="flex items-center justify-between px-4 pt-4 pb-6">
-          <span className="setl-wordmark text-[22px]" style={{ color: INK_FG }}>
+          <span className="setl-wordmark text-[22px]" style={{ color: DRAWER_FG }}>
             SETL
           </span>
           <button
@@ -219,7 +219,7 @@ function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
             onClick={onClose}
             aria-label="Close menu"
             className="grid h-11 w-11 place-items-center -mr-2"
-            style={{ color: INK_FG }}
+            style={{ color: DRAWER_FG }}
           >
             <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
               <path
@@ -238,7 +238,7 @@ function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
           className="relative flex items-center px-4 text-[16px]"
           style={{
             minHeight: 48,
-            color: isEvents ? "var(--magenta)" : INK_FG,
+            color: isEvents ? "var(--magenta)" : DRAWER_FG,
             fontWeight: isEvents ? 600 : 500,
           }}
         >
@@ -251,7 +251,7 @@ function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
           className="relative flex items-center px-4 text-[16px]"
           style={{
             minHeight: 48,
-            color: isVendors ? "var(--magenta)" : INK_FG,
+            color: isVendors ? "var(--magenta)" : DRAWER_FG,
             fontWeight: isVendors ? 600 : 500,
           }}
         >
@@ -281,7 +281,7 @@ function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
                 className="relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 text-[14px]"
                 style={{
                   minHeight: 48,
-                  color: active ? "var(--magenta)" : INK_FG,
+                  color: active ? "var(--magenta)" : DRAWER_FG,
                   fontWeight: active ? 600 : 500,
                 }}
               >
