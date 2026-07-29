@@ -530,11 +530,14 @@ function StripCell({ label, value, amber, magenta }: { label: string; value: num
 /* ---------- main component ---------- */
 
 type ViewMode = "summary" | "full";
+type Tab = "performance" | "settlement";
 
 function EventSheet() {
   const event = Route.useLoaderData();
+  const [tab, setTab] = useState<Tab>("performance");
   const [mode, setMode] = useState<ViewMode>("summary");
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
+  const [showRecon, setShowRecon] = useState(false);
 
   const toggle = (k: string) => setOpenMap((m) => ({ ...m, [k]: !m[k] }));
   const isOpen = (k: string) => (mode === "full" ? openMap[k] !== false : !!openMap[k]);
@@ -577,6 +580,21 @@ function EventSheet() {
   const inputClaimed = event.vat_return.input_claimed;
   const inputGap = inputClaimed === null ? null : inputVatOnBills - inputClaimed;
 
+  const hasReturnComponents =
+    event.vat_return.output_declared !== null ||
+    event.vat_return.input_claimed !== null ||
+    event.vat_return.deposits !== null;
+
+  // Outstanding items count for the chip
+  const outstandingCount = useMemo(() => {
+    const unpaidBills = new Set<string>();
+    for (const b of event.bills) if (b.status === "unpaid") unpaidBills.add(b.id);
+    const pendingRev = event.revenue.filter((r: import("@/lib/setl-data").RevenueEntry) => r.status === "pending").length;
+    const vatDue = event.vat_return.status === "due" ? 1 : 0;
+    const settleDue = event.settlement_items.filter((s: import("@/lib/setl-data").SettlementItem) => s.status === "due").length;
+    return unpaidBills.size + pendingRev + vatDue + settleDue;
+  }, [event]);
+
   // App-bar right slot fades in once the H1's bottom scrolls above the 52px bar.
   const h1Ref = useRef<HTMLHeadingElement | null>(null);
   const [showBarTitle, setShowBarTitle] = useState(false);
@@ -592,8 +610,6 @@ function EventSheet() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-
-
   return (
     <AppShell rightSlot={showBarTitle ? <EventBarSlot name={event.name} netProfitAmount={np.amount} /> : undefined}>
       <div className="min-h-screen bg-background">
@@ -603,210 +619,419 @@ function EventSheet() {
             {fmtDate(event.date)} · {event.venue} · headcount {event.headcount.toLocaleString()} ({event.comps} comps)
           </p>
 
-
-        <StatusStrip event={event} />
-
-        {/* View control */}
-        <div className="mb-2 inline-flex rounded-full border border-hairline p-0.5">
-          {(["summary", "full"] as ViewMode[]).map((m) => (
-            <button key={m}
-              onClick={() => { setMode(m); if (m === "full") setOpenMap({}); else setOpenMap({}); }}
-              className={`rounded-full px-3 py-1 text-[12px] font-semibold uppercase tracking-wider transition-colors ${
-                mode === m ? "text-primary-foreground" : "text-muted-foreground"
-              }`}
-              style={mode === m ? { backgroundColor: "var(--magenta)" } : undefined}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-
-        {/* Ladder */}
-        <section>
-          <SheetHeader label="Revenue" sublabel="VAT-inclusive" />
-          {(["ticket_sales", "bar_sales", "sponsorship", "tables_other"] as const).map((cat) => {
-            const b = revBy[cat];
-            const pending = pendingRevenueCount(event, cat);
-            const key = `rev-${cat}`;
-            return (
-              <ExpandableCategory
-                key={cat}
-                open={isOpen(key)} onToggle={() => toggle(key)}
-                name={REVENUE_LABELS[cat]}
-                badge={pending > 0 && !isOpen(key) ? <AmberBadge>{pending} pending</AmberBadge> : null}
-                amount={fmt(b.amount)}
-                vat={b.vat === 0 ? <span className="text-muted-foreground">—</span> : fmt(b.vat)}
+          {/* Tabs */}
+          <div className="mt-5 flex items-center gap-2 flex-wrap">
+            <div className="inline-flex rounded-full border border-hairline p-0.5">
+              {(["performance", "settlement"] as Tab[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`rounded-full px-3 py-1 text-[12px] font-semibold uppercase tracking-wider transition-colors ${
+                    tab === t ? "text-primary-foreground" : "text-muted-foreground"
+                  }`}
+                  style={tab === t ? { backgroundColor: "var(--magenta)" } : undefined}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+            {tab === "performance" && outstandingCount > 0 && (
+              <button
+                onClick={() => setTab("settlement")}
+                className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold"
+                style={{
+                  color: "var(--amber-fg)",
+                  borderColor: "var(--amber-fg)",
+                  backgroundColor: "var(--amber-bg)",
+                }}
               >
-                <RevenueDrill event={event} cat={cat} />
-              </ExpandableCategory>
-            );
-          })}
-          <Milestone label="Total revenue" amount={rev.amount} head={head} vat={rev.vat} />
-        </section>
-
-        {/* Cost of sales */}
-        <section>
-          <SheetHeader label="Cost of sales" />
-          <ExpandableCategory
-            open={isOpen("cos-drinks")} onToggle={() => toggle("cos-drinks")}
-            name={COST_LABELS.drinks}
-            subline={drinksSubline ? `${drinksSubline}, computed` : undefined}
-            badge={unpaidBillCount(event, (l) => l.category === "cos" && l.sub === "drinks") > 0 && !isOpen("cos-drinks")
-              ? <AmberBadge>{unpaidBillCount(event, (l) => l.category === "cos" && l.sub === "drinks")} due</AmberBadge> : null}
-            amount={fmt(cosBy.drinks.amount)}
-            vat={fmt(cosBy.drinks.vat)}
-          >
-            <BillDrill items={cosBy.drinks.items} />
-          </ExpandableCategory>
-          <ExpandableCategory
-            open={isOpen("cos-food")} onToggle={() => toggle("cos-food")}
-            name={COST_LABELS.food}
-            subline={foodSubline}
-            badge={unpaidBillCount(event, (l) => l.category === "cos" && l.sub === "food") > 0 && !isOpen("cos-food")
-              ? <AmberBadge>{unpaidBillCount(event, (l) => l.category === "cos" && l.sub === "food")} due</AmberBadge> : null}
-            amount={fmt(cosBy.food.amount)}
-            vat={cosBy.food.vat === 0 ? <span className="text-muted-foreground">—</span> : fmt(cosBy.food.vat)}
-          >
-            <BillDrill items={cosBy.food.items} />
-          </ExpandableCategory>
-          <SectionTotal label="Total cost of sales" amount={cos.amount} vat={cos.vat} head={head} />
-          <Milestone label="Gross profit" amount={gp.amount} head={head} marginBase={rev.amount} />
-        </section>
-
-        {/* Event costs */}
-        <section>
-          <SheetHeader label="Event costs" />
-          {EVENT_COST_KEYS.map((k) => {
-            const b = ecBy[k];
-            const key = `ec-${k}`;
-            const dueCount = unpaidBillCount(event, (l) => l.category === k);
-            const subline =
-              k === "core_production" ? "Venue + everything rented" :
-              k === "decor_merch_supplies" ? "Bought + build labour" :
-              k === "talent" ? talentSub : undefined;
-            return (
-              <ExpandableCategory
-                key={k}
-                open={isOpen(key)} onToggle={() => toggle(key)}
-                name={COST_LABELS[k]}
-                subline={subline}
-                badge={dueCount > 0 && !isOpen(key) ? <AmberBadge>{dueCount} due</AmberBadge> : null}
-                amount={fmt(b.amount)}
-                vat={b.vat === 0 ? <span className="text-muted-foreground">—</span> : fmt(b.vat)}
-              >
-                <BillDrill items={b.items} />
-              </ExpandableCategory>
-            );
-          })}
-          <SectionTotal label="Total event costs" amount={ec.amount} vat={ec.vat} head={head} />
-          <Milestone label="Event profit" amount={ep.amount} head={head} marginBase={rev.amount} />
-        </section>
-
-        {/* VAT — BRA */}
-        <section>
-          <SheetHeader label="VAT — BRA" sublabel="Barbados Revenue Authority" showVat={false} />
-
-          {/* Output */}
-          <ExpandableCategory
-            open={isOpen("vat-output")} onToggle={() => toggle("vat-output")}
-            name="Output VAT on revenue"
-            badge={outputGap !== null && Math.abs(outputGap) > 0.02 && !isOpen("vat-output")
-              ? <AmberBadge>Gap {fmt(Math.abs(outputGap))}</AmberBadge> : null}
-            amount={fmt(outputVatWithin)}
-            vat=""
-          >
-            <DrillHeader cols={["SOURCE", "", "AMOUNT", ""]} />
-            {(["ticket_sales", "bar_sales", "sponsorship", "tables_other"] as const).map((c) => (
-              <DrillRow key={c} name={REVENUE_LABELS[c]} inv="" amount={fmt(revBy[c].vat)} vat="" />
-            ))}
-            <DrillRow name={<b>VAT sitting within all revenue</b>} inv="" amount={<b>{fmt(outputVatWithin)}</b>} vat="" />
-            {outputDeclared === null ? (
-              <DrillRow name={<span className="text-muted-foreground">Return components not recorded</span>} inv="" amount="" vat="" />
-            ) : (
-              <>
-                <DrillRow name={<b>Declared output per the return</b>} inv="" amount={<b>{fmt(outputDeclared)}</b>} vat="" />
-                {Math.abs(outputGap!) > 0.02 && (
-                  <DrillRow amber name="Difference — declared scope & rate basis" inv="" amount={fmt(outputGap!)} vat="" />
-                )}
-              </>
+                <span
+                  aria-hidden
+                  className="inline-block h-[6px] w-[6px] rounded-full"
+                  style={{ backgroundColor: "var(--amber-fg)" }}
+                />
+                {outstandingCount} items outstanding → Settlement
+              </button>
             )}
-          </ExpandableCategory>
-
-          {/* Input */}
-          <ExpandableCategory
-            open={isOpen("vat-input")} onToggle={() => toggle("vat-input")}
-            name="Input VAT on purchases"
-            badge={inputGap !== null && Math.abs(inputGap) > 0.02 && !isOpen("vat-input")
-              ? <AmberBadge>Gap {fmt(Math.abs(inputGap))}</AmberBadge> : null}
-            amount={fmt(inputVatOnBills)}
-            vat=""
-          >
-            <DrillHeader cols={["SOURCE", "", "AMOUNT", ""]} />
-            <DrillRow name={COST_LABELS.drinks} inv="" amount={fmt(cosBy.drinks.vat)} vat="" />
-            <DrillRow name={COST_LABELS.food} inv="" amount={fmt(cosBy.food.vat)} vat="" />
-            {EVENT_COST_KEYS.map((k) => (
-              <DrillRow key={k} name={COST_LABELS[k]} inv="" amount={fmt(ecBy[k].vat)} vat="" />
-            ))}
-            <DrillRow name={<b>VAT sitting on all bills</b>} inv="" amount={<b>{fmt(inputVatOnBills)}</b>} vat="" />
-            {inputClaimed === null ? (
-              <DrillRow name={<span className="text-muted-foreground">Return components not recorded</span>} inv="" amount="" vat="" />
-            ) : (
-              <>
-                <DrillRow name={<b>Claimed in the VAT return</b>} inv="" amount={<b>{fmt(inputClaimed)}</b>} vat="" />
-                {Math.abs(inputGap!) > 0.02 && (
-                  <DrillRow amber name="Unclaimed — see line-level VAT on bills" inv="" amount={fmt(inputGap!)} vat="" />
-                )}
-              </>
-            )}
-          </ExpandableCategory>
-
-          {/* Deposits */}
-          {event.vat_return.deposits !== null && (
-            <CategoryRow
-              name="Deposits & prepayments"
-              amount={fmt(-event.vat_return.deposits)}
-              vat=""
-            />
-          )}
-
-          {/* Net VAT payable */}
-          <CategoryRow
-            name={<span>Net VAT payable — BRA</span>}
-            amber={event.vat_return.status === "due"}
-            amount={fmt(event.vat_return.net_payable)}
-            vat=""
-          />
-          {event.vat_return.note && (
-            <p className="mt-3 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">
-              {event.vat_return.note}
-            </p>
-          )}
-
-          <div className="mt-2">
-            <HeroMilestone label="Net profit" amount={np.amount} head={head} marginBase={rev.amount} />
           </div>
-        </section>
 
-        {/* Settlement */}
-        <section>
-          <SheetHeader label="Settlement" caption="Cash items outside this event's P&L" showVat={false} />
-          {event.settlement_items.map((s: import("@/lib/setl-data").SettlementItem, i: number) => (
-            <CategoryRow
-              key={i} name={s.label}
-              amber={s.status === "due"}
-              amount={fmt(s.amount)}
-              vat=""
-            />
-          ))}
-          <SectionTotal label="Cash result after settlement" amount={cash} head={head} showVat={false} />
-        </section>
+          {tab === "performance" ? (
+            <>
+              {/* View control */}
+              <div className="mt-6 mb-2 inline-flex rounded-full border border-hairline p-0.5">
+                {(["summary", "full"] as ViewMode[]).map((m) => (
+                  <button key={m}
+                    onClick={() => { setMode(m); setOpenMap({}); }}
+                    className={`rounded-full px-3 py-1 text-[12px] font-semibold uppercase tracking-wider transition-colors ${
+                      mode === m ? "text-primary-foreground" : "text-muted-foreground"
+                    }`}
+                    style={mode === m ? { backgroundColor: "var(--magenta)" } : undefined}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
 
-          <p className="mt-10 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">
-            All figures BBD. Every number on this page is derived from bill lines and revenue entries — nothing is written by hand.
-          </p>
+              {/* Revenue */}
+              <section>
+                <SheetHeader label="Revenue" sublabel="VAT-inclusive" />
+                {(["ticket_sales", "bar_sales", "sponsorship", "tables_other"] as const).map((cat) => {
+                  const b = revBy[cat];
+                  const pending = pendingRevenueCount(event, cat);
+                  const key = `rev-${cat}`;
+                  return (
+                    <ExpandableCategory
+                      key={cat}
+                      open={isOpen(key)} onToggle={() => toggle(key)}
+                      name={REVENUE_LABELS[cat]}
+                      badge={pending > 0 && !isOpen(key) ? <AmberBadge>{pending} pending</AmberBadge> : null}
+                      amount={fmt(b.amount)}
+                      vat={b.vat === 0 ? <span className="text-muted-foreground">—</span> : fmt(b.vat)}
+                    >
+                      <RevenueDrill event={event} cat={cat} />
+                    </ExpandableCategory>
+                  );
+                })}
+                <Milestone label="Total revenue" amount={rev.amount} head={head} vat={rev.vat} />
+              </section>
+
+              {/* Cost of sales */}
+              <section>
+                <SheetHeader label="Cost of sales" />
+                <ExpandableCategory
+                  open={isOpen("cos-drinks")} onToggle={() => toggle("cos-drinks")}
+                  name={COST_LABELS.drinks}
+                  subline={drinksSubline ? `${drinksSubline}, computed` : undefined}
+                  badge={unpaidBillCount(event, (l) => l.category === "cos" && l.sub === "drinks") > 0 && !isOpen("cos-drinks")
+                    ? <AmberBadge>{unpaidBillCount(event, (l) => l.category === "cos" && l.sub === "drinks")} due</AmberBadge> : null}
+                  amount={fmt(cosBy.drinks.amount)}
+                  vat={fmt(cosBy.drinks.vat)}
+                >
+                  <BillDrill items={cosBy.drinks.items} />
+                </ExpandableCategory>
+                <ExpandableCategory
+                  open={isOpen("cos-food")} onToggle={() => toggle("cos-food")}
+                  name={COST_LABELS.food}
+                  subline={foodSubline}
+                  badge={unpaidBillCount(event, (l) => l.category === "cos" && l.sub === "food") > 0 && !isOpen("cos-food")
+                    ? <AmberBadge>{unpaidBillCount(event, (l) => l.category === "cos" && l.sub === "food")} due</AmberBadge> : null}
+                  amount={fmt(cosBy.food.amount)}
+                  vat={cosBy.food.vat === 0 ? <span className="text-muted-foreground">—</span> : fmt(cosBy.food.vat)}
+                >
+                  <BillDrill items={cosBy.food.items} />
+                </ExpandableCategory>
+                <SectionTotal label="Total cost of sales" amount={cos.amount} vat={cos.vat} head={head} />
+                <Milestone label="Gross profit" amount={gp.amount} head={head} marginBase={rev.amount} />
+              </section>
+
+              {/* Expenses */}
+              <section>
+                <SheetHeader label="Expenses" />
+                {EVENT_COST_KEYS.map((k) => {
+                  const b = ecBy[k];
+                  const key = `ec-${k}`;
+                  const dueCount = unpaidBillCount(event, (l) => l.category === k);
+                  const subline =
+                    k === "core_production" ? "Venue + everything rented" :
+                    k === "decor_merch_supplies" ? "Bought + build labour" :
+                    k === "talent" ? talentSub : undefined;
+                  return (
+                    <ExpandableCategory
+                      key={k}
+                      open={isOpen(key)} onToggle={() => toggle(key)}
+                      name={COST_LABELS[k]}
+                      subline={subline}
+                      badge={dueCount > 0 && !isOpen(key) ? <AmberBadge>{dueCount} due</AmberBadge> : null}
+                      amount={fmt(b.amount)}
+                      vat={b.vat === 0 ? <span className="text-muted-foreground">—</span> : fmt(b.vat)}
+                    >
+                      <BillDrill items={b.items} />
+                    </ExpandableCategory>
+                  );
+                })}
+                <SectionTotal label="Total expenses" amount={ec.amount} vat={ec.vat} head={head} />
+                <Milestone label="Profit before tax" amount={ep.amount} head={head} marginBase={rev.amount} />
+              </section>
+
+              {/* Tax */}
+              <section>
+                <SheetHeader label="Tax" showVat={false} />
+                {hasReturnComponents ? (
+                  <ExpandableCategory
+                    open={isOpen("tax-vat")} onToggle={() => toggle("tax-vat")}
+                    name="VAT payable — net"
+                    amount={fmt(event.vat_return.net_payable)}
+                    vat=""
+                    badge={event.vat_return.status === "due" && !isOpen("tax-vat")
+                      ? <AmberBadge>due</AmberBadge> : null}
+                  >
+                    <DrillHeader cols={["COMPONENT", "", "AMOUNT", ""]} />
+                    <DrillRow
+                      name="Output VAT declared"
+                      inv=""
+                      amount={outputDeclared === null ? "—" : fmt(outputDeclared)}
+                      vat=""
+                    />
+                    <DrillRow
+                      name="Input VAT claimed"
+                      inv=""
+                      amount={inputClaimed === null ? "—" : fmt(-inputClaimed)}
+                      vat=""
+                    />
+                    <DrillRow
+                      name="Deposits & prepayments"
+                      inv=""
+                      amount={event.vat_return.deposits === null ? "—" : fmt(-event.vat_return.deposits)}
+                      vat=""
+                    />
+                    <DrillRow
+                      name={<b>Net VAT payable</b>}
+                      inv=""
+                      amount={<b>{fmt(event.vat_return.net_payable)}</b>}
+                      vat=""
+                      amber={event.vat_return.status === "due"}
+                    />
+
+                    <div className="mt-3">
+                      <button
+                        onClick={() => setShowRecon((s) => !s)}
+                        className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-ink"
+                      >
+                        {showRecon ? "Hide" : "Show"} reconciliation
+                      </button>
+                    </div>
+
+                    {showRecon && (
+                      <div className="mt-3 border-t border-dashed border-hairline pt-3">
+                        <div className="pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Output — within revenue vs declared
+                        </div>
+                        {(["ticket_sales", "bar_sales", "sponsorship", "tables_other"] as const).map((c) => (
+                          <DrillRow key={c} name={REVENUE_LABELS[c]} inv="" amount={fmt(revBy[c].vat)} vat="" />
+                        ))}
+                        <DrillRow name={<b>VAT sitting within all revenue</b>} inv="" amount={<b>{fmt(outputVatWithin)}</b>} vat="" />
+                        {outputDeclared !== null && (
+                          <>
+                            <DrillRow name={<b>Declared output per the return</b>} inv="" amount={<b>{fmt(outputDeclared)}</b>} vat="" />
+                            {outputGap !== null && Math.abs(outputGap) > 0.02 && (
+                              <DrillRow amber name="Gap — declared scope & rate basis" inv="" amount={fmt(outputGap)} vat="" />
+                            )}
+                          </>
+                        )}
+
+                        <div className="mt-4 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Input — on bills vs claimed
+                        </div>
+                        <DrillRow name={COST_LABELS.drinks} inv="" amount={fmt(cosBy.drinks.vat)} vat="" />
+                        <DrillRow name={COST_LABELS.food} inv="" amount={fmt(cosBy.food.vat)} vat="" />
+                        {EVENT_COST_KEYS.map((k) => (
+                          <DrillRow key={k} name={COST_LABELS[k]} inv="" amount={fmt(ecBy[k].vat)} vat="" />
+                        ))}
+                        <DrillRow name={<b>VAT sitting on all bills</b>} inv="" amount={<b>{fmt(inputVatOnBills)}</b>} vat="" />
+                        {inputClaimed !== null && (
+                          <>
+                            <DrillRow name={<b>Claimed in the VAT return</b>} inv="" amount={<b>{fmt(inputClaimed)}</b>} vat="" />
+                            {inputGap !== null && Math.abs(inputGap) > 0.02 && (
+                              <DrillRow amber name="Unclaimed — see line-level VAT on bills" inv="" amount={fmt(inputGap)} vat="" />
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </ExpandableCategory>
+                ) : (
+                  <>
+                    <CategoryRow
+                      name="VAT payable — net"
+                      amount={fmt(event.vat_return.net_payable)}
+                      vat=""
+                    />
+                    {event.vat_return.note && (
+                      <p className="mt-3 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">
+                        {event.vat_return.note}
+                      </p>
+                    )}
+                  </>
+                )}
+                {hasReturnComponents && event.vat_return.note && (
+                  <p className="mt-3 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">
+                    {event.vat_return.note}
+                  </p>
+                )}
+
+                <div className="mt-2">
+                  <HeroMilestone label="Profit after tax" amount={np.amount} head={head} marginBase={rev.amount} />
+                </div>
+              </section>
+
+              <p className="mt-10 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">
+                All figures BBD. Every number on this page is derived from bill lines and revenue entries — nothing is written by hand.
+              </p>
+            </>
+          ) : (
+            <SettlementTab event={event} profitAfterTax={np.amount} cash={cash} head={head} />
+          )}
         </div>
       </div>
     </AppShell>
+  );
+}
+
+/* ---------- settlement tab ---------- */
+
+function SettlementTab({
+  event, profitAfterTax, cash, head,
+}: { event: EventRecord; profitAfterTax: number; cash: number; head: number }) {
+  const collect = toCollect(event);
+  const pay = toPay(event);
+  const net = collect - pay;
+
+  const receivables = event.revenue.filter((r) => r.status === "pending");
+
+  // Payables: unpaid bills as single rows at full bill amount
+  const unpaidBills = event.bills.filter((b) => b.status === "unpaid");
+  const payables = unpaidBills.map((b) => {
+    const amount = b.lines.reduce((s, l) => s + l.amount, 0);
+    const cats = Array.from(new Set(b.lines.map((l) => l.category)));
+    return { bill: b, amount, cats };
+  });
+  const payablesTotal = payables.reduce((s, p) => s + p.amount, 0);
+  const vatDue = event.vat_return.status === "due" ? event.vat_return.net_payable : 0;
+  const payablesGrand = payablesTotal + vatDue;
+
+  const settlementTotal = event.settlement_items.reduce((s, i) => s + i.amount, 0);
+
+  const categoryLabel = (c: string): string => {
+    if (c === "cos") return "cost of sales";
+    return (COST_LABELS as Record<string, string>)[c] ?? c;
+  };
+
+  return (
+    <>
+      {/* Status strip moved here */}
+      <div className="mt-6 grid grid-cols-3 divide-x divide-hairline border-y border-hairline">
+        <StripCell label="To collect" value={collect} amber={collect > 0} />
+        <StripCell label="To pay" value={pay} amber={pay > 0} />
+        <StripCell label="Net to settle" value={net} magenta={net < 0} />
+      </div>
+
+      {/* Receivables */}
+      <section>
+        <SheetHeader label="Receivables" showVat={false} />
+        {receivables.length === 0 ? (
+          <p className="px-3 py-4 text-[13px] text-muted-foreground italic">Nothing to collect.</p>
+        ) : (
+          <>
+            {receivables.map((r) => (
+              <div key={r.id} className="border-b border-dashed border-hairline">
+                <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 px-3 py-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center">
+                      <AmberDot />
+                      <span className="text-[16px] font-medium" style={{ color: "var(--amber-fg)" }}>
+                        {r.label}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 pl-[calc(1ch+0.5rem)] text-[11.5px] uppercase tracking-wider text-muted-foreground">
+                      pending
+                    </div>
+                  </div>
+                  <div className="num text-right text-[16px] font-bold" style={{ color: "var(--amber-fg)" }}>
+                    {fmt(r.amount)}
+                  </div>
+                  <div />
+                </div>
+              </div>
+            ))}
+            <SectionTotal label="Total receivables" amount={collect} showVat={false} />
+          </>
+        )}
+      </section>
+
+      {/* Payables */}
+      <section>
+        <SheetHeader label="Payables" />
+        {payables.length === 0 && vatDue === 0 ? (
+          <p className="px-3 py-4 text-[13px] text-muted-foreground italic">Nothing to pay.</p>
+        ) : (
+          <>
+            <DrillHeader cols={["VENDOR", "INV #", "AMOUNT", ""]} />
+            {payables.map((p) => (
+              <DrillRow
+                key={p.bill.id}
+                amber
+                name={p.bill.vendor}
+                sub={p.cats.length > 1 ? `across ${p.cats.map(categoryLabel).join(", ")}` : categoryLabel(p.cats[0] ?? "")}
+                inv={invLabel(p.bill.invoice)}
+                amount={fmt(p.amount)}
+                vat=""
+              />
+            ))}
+            {vatDue > 0 && (
+              <DrillRow
+                amber
+                name="VAT payable — net"
+                inv="BRA"
+                amount={fmt(vatDue)}
+                vat=""
+              />
+            )}
+            <SectionTotal label="Total payables" amount={payablesGrand} showVat={false} />
+          </>
+        )}
+      </section>
+
+      {/* Settlement items */}
+      {event.settlement_items.length > 0 && (
+        <section>
+          <SheetHeader label="Settlement items" showVat={false} />
+          {event.settlement_items.map((s, i) => {
+            const isDue = s.status === "due";
+            const muted = !isDue;
+            return (
+              <div key={i} className="border-b border-dashed border-hairline">
+                <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 px-3 py-3">
+                  <div className="min-w-0 flex items-center">
+                    {isDue && <AmberDot />}
+                    <span
+                      className={`text-[16px] ${isDue ? "font-bold" : "font-medium"} ${muted ? "text-muted-foreground" : ""}`}
+                      style={isDue ? { color: "var(--amber-fg)" } : undefined}
+                    >
+                      {s.label}
+                    </span>
+                    <span
+                      className={`ml-2 text-[10px] font-semibold uppercase tracking-wider ${muted ? "text-muted-foreground" : ""}`}
+                      style={isDue ? { color: "var(--amber-fg)" } : undefined}
+                    >
+                      {s.status}
+                    </span>
+                  </div>
+                  <div
+                    className={`num text-right text-[16px] ${isDue ? "font-bold" : "font-medium"} ${muted ? "text-muted-foreground" : ""}`}
+                    style={isDue ? { color: "var(--amber-fg)" } : undefined}
+                  >
+                    {fmt(s.amount)}
+                  </div>
+                  <div />
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
+
+      {/* Cash position */}
+      <section>
+        <SheetHeader label="Cash position" showVat={false} />
+        <CategoryRow name="Profit after tax" amount={fmt(profitAfterTax)} vat="" />
+        <CategoryRow name="Settlement items" amount={fmt(settlementTotal)} vat="" />
+        <SectionTotal label="Cash when fully settled" amount={cash} head={head} showVat={false} />
+      </section>
+
+      <p className="mt-10 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">
+        All figures BBD. Settlement is a view of cash flows outside the P&L — every number is derived from the same bills, revenue and settlement items.
+      </p>
+    </>
   );
 }
 
