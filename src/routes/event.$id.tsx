@@ -281,7 +281,7 @@ function SectionTotal({
   label, amount, vat, head, extra, showVat = true,
 }: { label: string; amount: number; vat?: number | null; head?: number; extra?: React.ReactNode; showVat?: boolean }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 border-t border-ink pt-3 pb-3">
+    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 px-3 border-t border-ink pt-3 pb-3">
       <div className="flex items-baseline flex-wrap gap-x-2">
         <span className="text-[13px] font-bold uppercase tracking-wider text-ink">{label}</span>
         {extra}
@@ -303,7 +303,7 @@ function Milestone({
   label, amount, head, marginBase, vat, extra,
 }: { label: string; amount: number; head: number; marginBase?: number; vat?: number; extra?: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 border-t-2 border-ink pt-4 pb-4"
+    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 px-3 border-t-2 border-ink pt-4 pb-4"
          style={{ borderTopColor: "var(--ink)" }}>
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span className="text-[14px] font-extrabold uppercase tracking-wider text-ink">{label}</span>
@@ -329,7 +329,7 @@ function HeroMilestone({
   label, amount, head, marginBase,
 }: { label: string; amount: number; head: number; marginBase?: number }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 pt-5 pb-4"
+    <div className="grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 px-3 pt-5 pb-4"
          style={{ borderTop: "3px solid var(--magenta)" }}>
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span className="text-[14px] font-extrabold uppercase tracking-wider text-ink">{label}</span>
