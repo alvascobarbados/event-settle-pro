@@ -47,9 +47,14 @@ function AmberDot() {
 function AmberBadge({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="ml-2 inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-      style={{ backgroundColor: "var(--amber-bg)", color: "var(--amber-fg)" }}
+      className="ml-2 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider"
+      style={{ color: "var(--amber-fg)" }}
     >
+      <span
+        aria-hidden
+        className="inline-block h-[6px] w-[6px] rounded-full"
+        style={{ backgroundColor: "var(--amber-fg)" }}
+      />
       {children}
     </span>
   );
