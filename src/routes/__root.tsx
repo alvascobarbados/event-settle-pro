@@ -84,6 +84,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "One page per event. Bills are the atom; the sheet is a computed view." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "theme-color", content: "#CE1663" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
