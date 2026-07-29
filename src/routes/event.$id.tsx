@@ -595,7 +595,7 @@ function EventSheet() {
         {/* Settlement */}
         <section className="mt-6">
           <SheetHeader label="Settlement — cash items outside this event's P&L" />
-          {event.settlement_items.map((s, i) => (
+          {event.settlement_items.map((s: import("@/lib/setl-data").SettlementItem, i: number) => (
             <CategoryRow
               key={i} name={s.label}
               amber={s.status === "due"}
