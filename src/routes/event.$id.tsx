@@ -811,21 +811,27 @@ function EventSheet() {
 }
 
 
-function SheetHeader({ label, caption, showVat = true }: { label: string; caption?: string; showVat?: boolean }) {
+function SheetHeader({ label, sublabel, caption, showVat = true }: { label: string; sublabel?: string; caption?: string; showVat?: boolean }) {
   return (
     <>
       <div
         className="mt-11 grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 px-3 py-2.5"
         style={{ backgroundColor: "var(--panel)" }}
       >
-        <div className="text-[12px] font-bold uppercase text-ink" style={{ letterSpacing: "0.08em" }}>{label}</div>
-        <div className="text-right text-[11px] uppercase text-muted-foreground" style={{ letterSpacing: "0.06em" }}>
+        <div className="min-w-0">
+          <div className="text-[12px] font-bold uppercase text-ink whitespace-nowrap" style={{ letterSpacing: "0.04em" }}>{label}</div>
+          {sublabel && (
+            <div className="mt-0.5 text-[11px] uppercase text-muted-foreground" style={{ letterSpacing: "0.04em" }}>{sublabel}</div>
+          )}
+        </div>
+        <div className="text-right text-[11px] uppercase text-muted-foreground self-start" style={{ letterSpacing: "0.06em" }}>
           Amount
         </div>
-        <div className="text-right text-[11px] uppercase text-muted-foreground" style={{ letterSpacing: "0.06em" }}>
+        <div className="text-right text-[11px] uppercase text-muted-foreground self-start" style={{ letterSpacing: "0.06em" }}>
           {showVat ? "VAT" : ""}
         </div>
       </div>
+
       {caption && (
         <p className="mt-2 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">{caption}</p>
       )}
