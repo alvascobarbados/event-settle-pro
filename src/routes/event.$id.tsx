@@ -47,9 +47,14 @@ function AmberDot() {
 function AmberBadge({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="ml-2 inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-      style={{ backgroundColor: "var(--amber-bg)", color: "var(--amber-fg)" }}
+      className="ml-2 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider"
+      style={{ color: "var(--amber-fg)" }}
     >
+      <span
+        aria-hidden
+        className="inline-block h-[6px] w-[6px] rounded-full"
+        style={{ backgroundColor: "var(--amber-fg)" }}
+      />
       {children}
     </span>
   );
@@ -317,20 +322,29 @@ function StatusStrip({ event }: { event: EventRecord }) {
   const pay = toPay(event);
   const net = collect - pay;
   return (
-    <div className="my-6 grid grid-cols-3 gap-2">
-      <StripCard label="To collect" value={collect} amber={collect > 0} />
-      <StripCard label="To pay" value={pay} amber={pay > 0} />
-      <StripCard label="Net to settle" value={net} magenta={net < 0} />
+    <div className="my-6 grid grid-cols-3 divide-x divide-hairline border-y border-hairline">
+      <StripCell label="To collect" value={collect} amber={collect > 0} />
+      <StripCell label="To pay" value={pay} amber={pay > 0} />
+      <StripCell label="Net to settle" value={net} magenta={net < 0} />
     </div>
   );
 }
-function StripCard({ label, value, amber, magenta }: { label: string; value: number; amber?: boolean; magenta?: boolean }) {
+function StripCell({ label, value, amber, magenta }: { label: string; value: number; amber?: boolean; magenta?: boolean }) {
+  const color = magenta ? "var(--magenta)" : "var(--ink)";
   return (
-    <div className="rounded-md border border-hairline bg-white px-3 py-3">
+    <div className="px-3 py-3">
       <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="num mt-1 text-[16px] font-bold"
-           style={{ color: amber ? "var(--amber-fg)" : magenta ? "var(--magenta)" : "var(--ink)" }}>
-        {fmt(value)}
+      <div className="mt-1 flex items-baseline gap-1.5">
+        {amber && (
+          <span
+            aria-hidden
+            className="inline-block h-[6px] w-[6px] translate-y-[-2px] rounded-full"
+            style={{ backgroundColor: "var(--amber-fg)" }}
+          />
+        )}
+        <div className="num text-[16px] font-bold" style={{ color }}>
+          {fmt(value)}
+        </div>
       </div>
     </div>
   );
@@ -390,13 +404,13 @@ function EventSheet() {
     <div className="min-h-screen bg-background">
       <div className="mx-auto w-full max-w-[680px] px-5 pt-8 pb-24">
         {/* Header */}
-        <header className="flex items-start justify-between">
+        <header className="flex items-center justify-between">
+          <Wordmark className="text-lg" />
           <div className="text-[12px] text-muted-foreground">
             <Link to="/" className="hover:text-ink">Events</Link>
             <span className="mx-1.5">/</span>
             <span className="text-ink">{event.name}</span>
           </div>
-          <Wordmark className="text-lg" />
         </header>
 
         <h1 className="mt-6 text-[30px] font-extrabold tracking-tight text-ink">{event.name}</h1>
@@ -595,7 +609,7 @@ function EventSheet() {
         {/* Settlement */}
         <section className="mt-6">
           <SheetHeader label="Settlement — cash items outside this event's P&L" />
-          {event.settlement_items.map((s, i) => (
+          {event.settlement_items.map((s: import("@/lib/setl-data").SettlementItem, i: number) => (
             <CategoryRow
               key={i} name={s.label}
               amber={s.status === "due"}
