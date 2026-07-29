@@ -589,9 +589,9 @@ function EventSheet() {
   const outstandingCount = useMemo(() => {
     const unpaidBills = new Set<string>();
     for (const b of event.bills) if (b.status === "unpaid") unpaidBills.add(b.id);
-    const pendingRev = event.revenue.filter((r) => r.status === "pending").length;
+    const pendingRev = event.revenue.filter((r: import("@/lib/setl-data").RevenueEntry) => r.status === "pending").length;
     const vatDue = event.vat_return.status === "due" ? 1 : 0;
-    const settleDue = event.settlement_items.filter((s) => s.status === "due").length;
+    const settleDue = event.settlement_items.filter((s: import("@/lib/setl-data").SettlementItem) => s.status === "due").length;
     return unpaidBills.size + pendingRev + vatDue + settleDue;
   }, [event]);
 
