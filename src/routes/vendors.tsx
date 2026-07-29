@@ -109,7 +109,9 @@ function VendorsPage() {
             </div>
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
+
