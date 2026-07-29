@@ -54,9 +54,10 @@ export function AppShell({
         rightSlot={rightSlot}
       />
       <NavDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-      <div style={{ paddingTop: "calc(56px + env(safe-area-inset-top))" }}>
+      <div style={{ paddingTop: "calc(52px + env(safe-area-inset-top, 0px))" }}>
         {children}
       </div>
+
     </>
   );
 }
