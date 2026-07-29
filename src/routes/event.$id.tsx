@@ -623,7 +623,7 @@ function EventSheet() {
 
         {/* Ladder */}
         <section>
-          <SheetHeader label="Revenue — VAT-inclusive" />
+          <SheetHeader label="Revenue" sublabel="VAT-inclusive" />
           {(["ticket_sales", "bar_sales", "sponsorship", "tables_other"] as const).map((cat) => {
             const b = revBy[cat];
             const pending = pendingRevenueCount(event, cat);
