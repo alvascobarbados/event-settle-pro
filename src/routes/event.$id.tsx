@@ -95,7 +95,7 @@ function CategoryRow({
   className?: string;
 }) {
   const content = (
-    <div className={`grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 py-3 ${className}`}>
+    <div className={`grid grid-cols-[minmax(0,1fr)_168px_60px] items-baseline gap-x-3 px-3 py-3 ${className}`}>
       <div className="min-w-0">
         <div className="flex items-center">
           {expandable && <Chevron open={!!open} />}
@@ -128,6 +128,7 @@ function CategoryRow({
   return <div className="border-b border-dashed border-hairline last:border-0">{content}</div>;
 }
 
+
 /* ---------- drill primitives ---------- */
 
 const DRILL_GRID_4 =
@@ -140,14 +141,14 @@ const DRILL_GRID_3 =
 function DrillPanel({ children }: { children: React.ReactNode }) {
   return (
     <div className="border-b border-dashed border-hairline" style={{ backgroundColor: "var(--panel)" }}>
-      <div className="pl-4 pr-0 py-3">{children}</div>
+      <div className="px-3 py-3">{children}</div>
     </div>
   );
 }
 
 function DrillHeader({ cols }: { cols: [string, string, string, string] }) {
   return (
-    <div className={`${DRILL_GRID_4} pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground`}>
+    <div className={`hidden sm:grid ${DRILL_GRID_4} pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground`}>
       <div>{cols[0]}</div>
       <div>{cols[1]}</div>
       <div className="text-right">{cols[2]}</div>
@@ -158,13 +159,14 @@ function DrillHeader({ cols }: { cols: [string, string, string, string] }) {
 
 function DrillHeader3({ cols }: { cols: [string, string, string] }) {
   return (
-    <div className={`${DRILL_GRID_3} pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground`}>
+    <div className={`hidden sm:grid ${DRILL_GRID_3} pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground`}>
       <div>{cols[0]}</div>
       <div className="text-right">{cols[1]}</div>
       <div className="text-right">{cols[2]}</div>
     </div>
   );
 }
+
 
 /** 4-column detail row (VENDOR | INV # | AMOUNT | VAT).
  *  Vendor names wrap rather than truncate. The descriptor `sub` spans cols 1–2. */
@@ -174,72 +176,100 @@ function DrillRow({
   name: React.ReactNode; sub?: React.ReactNode; inv?: React.ReactNode;
   amount: React.ReactNode; vat: React.ReactNode; amber?: boolean; indent?: number;
 }) {
+  const amberStyle = amber ? { color: "var(--amber-fg)" } : undefined;
+  const hasInv = inv !== undefined && inv !== "" && inv !== null;
+
   return (
-    <div className={`${DRILL_GRID_4} items-baseline border-t border-dashed border-hairline py-[10px]`}>
-      <div className="min-w-0 [grid-column:1] [grid-row:1]" style={{ paddingLeft: indent * 12 }}>
-        <div className="flex items-start text-[15px] leading-[1.25]">
+    <div className="border-t border-dashed border-hairline py-[10px]">
+      {/* Mobile stacked */}
+      <div className="sm:hidden" style={{ paddingLeft: indent * 12 }}>
+        <div className="flex items-start text-[15px] leading-[1.25] text-ink">
           {amber && <AmberDot />}
-          <span
-            className={`break-words ${amber ? "font-bold" : ""}`}
-            style={amber ? { color: "var(--amber-fg)" } : undefined}
+          <span className={`break-words ${amber ? "font-bold" : ""}`} style={amberStyle}>{name}</span>
+        </div>
+        {sub && <div className="mt-0.5 text-[13px] leading-[1.35] text-muted-foreground">{sub}</div>}
+        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto_56px] items-baseline gap-x-3">
+          <div className="min-w-0 truncate text-[12px] text-muted-foreground tabular-nums">
+            {hasInv ? inv : ""}
+          </div>
+          <div className={`num text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`} style={amberStyle}>
+            {amount}
+          </div>
+          <div className="num text-right text-[12px] text-muted-foreground tabular-nums">
+            {vat === "" || vat === undefined ? "" : vat}
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop grid — unchanged */}
+      <div className={`hidden sm:grid ${DRILL_GRID_4} items-baseline`}>
+        <div className="min-w-0 [grid-column:1] [grid-row:1]" style={{ paddingLeft: indent * 12 }}>
+          <div className="flex items-start text-[15px] leading-[1.25]">
+            {amber && <AmberDot />}
+            <span className={`break-words ${amber ? "font-bold" : ""}`} style={amberStyle}>{name}</span>
+          </div>
+        </div>
+        <div className="[grid-column:2] [grid-row:1] truncate text-[12px] text-muted-foreground tabular-nums">
+          {inv}
+        </div>
+        <div className={`num [grid-column:3] [grid-row:1] text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`} style={amberStyle}>
+          {amount}
+        </div>
+        <div className="num [grid-column:4] [grid-row:1] text-right text-[13px] text-muted-foreground tabular-nums">
+          {vat === "" || vat === undefined ? "" : vat}
+        </div>
+        {sub && (
+          <div
+            className="mt-0.5 text-[13px] leading-[1.35] text-muted-foreground [grid-column:1/3] [grid-row:2]"
+            style={{ paddingLeft: indent * 12 }}
           >
-            {name}
-          </span>
-        </div>
+            {sub}
+          </div>
+        )}
       </div>
-      <div className="[grid-column:2] [grid-row:1] truncate text-[12px] text-muted-foreground tabular-nums">
-        {inv}
-      </div>
-      <div
-        className={`num [grid-column:3] [grid-row:1] text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`}
-        style={amber ? { color: "var(--amber-fg)" } : undefined}
-      >
-        {amount}
-      </div>
-      <div className="num [grid-column:4] [grid-row:1] text-right text-[13px] text-muted-foreground tabular-nums">
-        {vat === "" || vat === undefined ? "" : (typeof vat === "string" || typeof vat === "number") ? vat : vat}
-      </div>
-      {sub && (
-        <div
-          className="mt-0.5 text-[13px] leading-[1.35] text-muted-foreground [grid-column:1/3] [grid-row:2]"
-          style={{ paddingLeft: indent * 12 }}
-        >
-          {sub}
-        </div>
-      )}
     </div>
   );
 }
 
-/** 3-column detail row for revenue drills (except sponsorship). */
 function DrillRow3({
   name, amount, vat, amber,
 }: {
   name: React.ReactNode; amount: React.ReactNode; vat: React.ReactNode; amber?: boolean;
 }) {
+  const amberStyle = amber ? { color: "var(--amber-fg)" } : undefined;
   return (
-    <div className={`${DRILL_GRID_3} items-baseline border-t border-dashed border-hairline py-[10px]`}>
-      <div className="min-w-0">
-        <div className="flex items-start text-[15px] leading-[1.25]">
+    <div className="border-t border-dashed border-hairline py-[10px]">
+      {/* Mobile stacked */}
+      <div className="sm:hidden">
+        <div className="flex items-start text-[15px] leading-[1.25] text-ink">
           {amber && <AmberDot />}
-          <span
-            className={`break-words ${amber ? "font-bold" : ""}`}
-            style={amber ? { color: "var(--amber-fg)" } : undefined}
-          >
-            {name}
-          </span>
+          <span className={`break-words ${amber ? "font-bold" : ""}`} style={amberStyle}>{name}</span>
+        </div>
+        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto_56px] items-baseline gap-x-3">
+          <div />
+          <div className={`num text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`} style={amberStyle}>
+            {amount}
+          </div>
+          <div className="num text-right text-[12px] text-muted-foreground tabular-nums">{vat}</div>
         </div>
       </div>
-      <div
-        className={`num text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`}
-        style={amber ? { color: "var(--amber-fg)" } : undefined}
-      >
-        {amount}
+      {/* Desktop grid — unchanged */}
+      <div className={`hidden sm:grid ${DRILL_GRID_3} items-baseline`}>
+        <div className="min-w-0">
+          <div className="flex items-start text-[15px] leading-[1.25]">
+            {amber && <AmberDot />}
+            <span className={`break-words ${amber ? "font-bold" : ""}`} style={amberStyle}>{name}</span>
+          </div>
+        </div>
+        <div className={`num text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`} style={amberStyle}>
+          {amount}
+        </div>
+        <div className="num text-right text-[13px] text-muted-foreground tabular-nums">{vat}</div>
       </div>
-      <div className="num text-right text-[13px] text-muted-foreground tabular-nums">{vat}</div>
     </div>
   );
 }
+
 
 function invLabel(inv: string | null) {
   return inv ?? "none";

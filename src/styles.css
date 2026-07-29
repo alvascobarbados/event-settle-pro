@@ -80,7 +80,10 @@
 
 @layer base {
   * { border-color: var(--color-border); }
-  html, body {
+  html {
+    background-color: #CE1663; /* status-bar area blends with app bar */
+  }
+  body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
@@ -88,6 +91,7 @@
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
   }
+
   .setl-wordmark {
     font-family: var(--font-display);
     font-weight: 700;
