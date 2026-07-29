@@ -550,8 +550,8 @@ function EventSheet() {
         </section>
 
         {/* VAT — BRA */}
-        <section className="mt-6">
-          <SheetHeader label="VAT — Barbados Revenue Authority" />
+        <section>
+          <SheetHeader label="VAT — Barbados Revenue Authority" showVat={false} />
 
           {/* Output */}
           <ExpandableCategory
@@ -560,7 +560,7 @@ function EventSheet() {
             badge={outputGap !== null && Math.abs(outputGap) > 0.02 && !isOpen("vat-output")
               ? <AmberBadge>Gap {fmt(Math.abs(outputGap))}</AmberBadge> : null}
             amount={fmt(outputVatWithin)}
-            vat={<span className="text-muted-foreground">—</span>}
+            vat=""
           >
             <DrillHeader cols={["SOURCE", "", "AMOUNT", ""]} />
             {(["ticket_sales", "bar_sales", "sponsorship", "tables_other"] as const).map((c) => (
@@ -586,7 +586,7 @@ function EventSheet() {
             badge={inputGap !== null && Math.abs(inputGap) > 0.02 && !isOpen("vat-input")
               ? <AmberBadge>Gap {fmt(Math.abs(inputGap))}</AmberBadge> : null}
             amount={fmt(inputVatOnBills)}
-            vat={<span className="text-muted-foreground">—</span>}
+            vat=""
           >
             <DrillHeader cols={["SOURCE", "", "AMOUNT", ""]} />
             <DrillRow name={COST_LABELS.drinks} inv="" amount={fmt(cosBy.drinks.vat)} vat="" />
@@ -612,48 +612,43 @@ function EventSheet() {
             <CategoryRow
               name="Deposits & prepayments"
               amount={fmt(-event.vat_return.deposits)}
-              vat={<span className="text-muted-foreground">—</span>}
+              vat=""
             />
           )}
 
           {/* Net VAT payable */}
           <CategoryRow
             name={<span>Net VAT payable — BRA</span>}
-            subline={event.vat_return.note}
             amber={event.vat_return.status === "due"}
             amount={fmt(event.vat_return.net_payable)}
             vat=""
           />
+          {event.vat_return.note && (
+            <p className="mt-3 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">
+              {event.vat_return.note}
+            </p>
+          )}
 
-          <Milestone
-            label="Net profit" amount={np.amount} head={head} marginBase={rev.amount} magenta
-          />
+          <div className="mt-2">
+            <HeroMilestone label="Net profit" amount={np.amount} head={head} marginBase={rev.amount} />
+          </div>
         </section>
 
         {/* Settlement */}
-        <section className="mt-6">
-          <SheetHeader label="Settlement — cash items outside this event's P&L" />
+        <section>
+          <SheetHeader label="Settlement" caption="Cash items outside this event's P&L" showVat={false} />
           {event.settlement_items.map((s: import("@/lib/setl-data").SettlementItem, i: number) => (
             <CategoryRow
               key={i} name={s.label}
               amber={s.status === "due"}
               amount={fmt(s.amount)}
-              vat={<span className="text-muted-foreground">—</span>}
+              vat=""
             />
           ))}
-          <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 border-t-2 border-ink py-4">
-            <div className="flex items-baseline">
-              <span className="text-[13px] font-extrabold uppercase tracking-wider text-ink">
-                Cash result after settlement
-              </span>
-              <PerHead value={cash} head={head} />
-            </div>
-            <div className="num text-[17px] font-extrabold text-ink">{fmt(cash)}</div>
-            <div />
-          </div>
+          <SectionTotal label="Cash result after settlement" amount={cash} head={head} showVat={false} />
         </section>
 
-        <p className="mt-10 text-[11px] text-muted-foreground">
+        <p className="mt-10 text-[12px] text-muted-foreground leading-[1.5] max-w-[44ch]">
           All figures BBD. Every number on this page is derived from bill lines and revenue entries — nothing is written by hand.
         </p>
       </div>
