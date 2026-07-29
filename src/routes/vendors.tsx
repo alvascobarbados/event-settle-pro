@@ -56,12 +56,12 @@ function VendorsPage() {
     <div className="min-h-screen bg-background">
       <div className="mx-auto w-full max-w-[680px] px-5 pt-8 pb-24">
         <header className="flex items-center justify-between">
+          <Wordmark className="text-lg" />
           <div className="text-[12px] text-muted-foreground">
             <Link to="/" className="hover:text-ink">Events</Link>
             <span className="mx-1.5">/</span>
             <span className="text-ink">Vendors</span>
           </div>
-          <Wordmark className="text-lg" />
         </header>
 
         <h1 className="mt-6 text-[28px] font-bold tracking-tight text-ink">Vendors</h1>
