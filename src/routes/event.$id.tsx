@@ -188,7 +188,7 @@ function DrillRow({
           <span className={`break-words ${amber ? "font-bold" : ""}`} style={amberStyle}>{name}</span>
         </div>
         {sub && <div className="mt-0.5 text-[13px] leading-[1.35] text-muted-foreground">{sub}</div>}
-        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto_56px] items-baseline gap-x-3">
+        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto_60px] items-baseline gap-x-3">
           <div className="min-w-0 truncate text-[12px] text-muted-foreground tabular-nums">
             {hasInv ? inv : ""}
           </div>
@@ -245,7 +245,7 @@ function DrillRow3({
           {amber && <AmberDot />}
           <span className={`break-words ${amber ? "font-bold" : ""}`} style={amberStyle}>{name}</span>
         </div>
-        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto_56px] items-baseline gap-x-3">
+        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto_60px] items-baseline gap-x-3">
           <div />
           <div className={`num text-right text-[15px] tabular-nums ${amber ? "font-bold" : ""}`} style={amberStyle}>
             {amount}
