@@ -4,8 +4,10 @@ import { EVENTS } from "@/lib/setl-data";
 import { netProfit } from "@/lib/setl-compute";
 import { fmt } from "@/lib/setl-format";
 
-const INK_FG = "#FAF8F9";
-const MAGENTA_TINT = "#F06FA7";
+const BAR_FG = "#221A20"; // ink, used for everything on the magenta bar
+const BAR_BG = "#CE1663"; // magenta
+const DRAWER_FG = "#FAF8F9";
+
 
 export function AppShell({
   children,
@@ -52,9 +54,10 @@ export function AppShell({
         rightSlot={rightSlot}
       />
       <NavDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-      <div style={{ paddingTop: "calc(56px + env(safe-area-inset-top))" }}>
+      <div style={{ paddingTop: "calc(52px + env(safe-area-inset-top, 0px))" }}>
         {children}
       </div>
+
     </>
   );
 }
@@ -72,23 +75,23 @@ function AppBar({
     <header
       className="fixed inset-x-0 top-0 z-40"
       style={{
-        paddingTop: "env(safe-area-inset-top)",
-        paddingLeft: "env(safe-area-inset-left)",
-        paddingRight: "env(safe-area-inset-right)",
-        backgroundColor: "var(--ink)",
-        boxShadow: scrolled ? "0 1px 8px rgba(34,26,32,0.25)" : "none",
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingLeft: "env(safe-area-inset-left, 0px)",
+        paddingRight: "env(safe-area-inset-right, 0px)",
+        backgroundColor: BAR_BG,
+        boxShadow: scrolled ? "0 1px 8px rgba(206,22,99,0.35)" : "none",
         transition: "box-shadow 150ms ease-out",
       }}
     >
-      <div className="flex h-14 items-center gap-1 pr-3">
+      <div className="flex h-[52px] items-center gap-1 pr-3">
         <button
           type="button"
           onClick={onOpen}
           aria-label="Open menu"
           className="grid h-11 w-11 shrink-0 place-items-center"
-          style={{ color: INK_FG }}
+          style={{ color: BAR_FG }}
         >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
             <path
               d="M3 5.5h14M3 10h14M3 14.5h14"
               stroke="currentColor"
@@ -98,8 +101,8 @@ function AppBar({
           </svg>
         </button>
         <span
-          className="setl-wordmark text-[18px] leading-none"
-          style={{ color: INK_FG }}
+          className="setl-wordmark text-[16px] leading-none"
+          style={{ color: BAR_FG }}
         >
           SETL
         </span>
@@ -115,6 +118,7 @@ function AppBar({
   );
 }
 
+
 /* Right-side slot preset used by the event page. */
 export function EventBarSlot({
   name,
@@ -126,18 +130,19 @@ export function EventBarSlot({
   return (
     <div className="flex items-baseline gap-2 min-w-0">
       <span
-        className="truncate text-[14px] font-semibold"
-        style={{ color: INK_FG }}
+        className="truncate text-[13px] leading-none"
+        style={{ color: BAR_FG, fontWeight: 600 }}
       >
         {name}
       </span>
       <span
-        className="num shrink-0 text-[14px] font-bold tabular-nums"
-        style={{ color: MAGENTA_TINT }}
+        className="num shrink-0 text-[13px] leading-none tabular-nums"
+        style={{ color: BAR_FG, fontWeight: 800 }}
       >
         {fmt(netProfitAmount)}
       </span>
     </div>
+
   );
 }
 
@@ -198,7 +203,7 @@ function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
         className="fixed inset-y-0 left-0 z-[60] flex w-[280px] flex-col transition-transform duration-200 ease-out"
         style={{
           backgroundColor: "var(--ink)",
-          color: INK_FG,
+          color: DRAWER_FG,
           transform: open ? "translateX(0)" : "translateX(-100%)",
           paddingTop: "env(safe-area-inset-top)",
           paddingLeft: "env(safe-area-inset-left)",
@@ -206,7 +211,7 @@ function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
         }}
       >
         <div className="flex items-center justify-between px-4 pt-4 pb-6">
-          <span className="setl-wordmark text-[22px]" style={{ color: INK_FG }}>
+          <span className="setl-wordmark text-[22px]" style={{ color: DRAWER_FG }}>
             SETL
           </span>
           <button
@@ -214,7 +219,7 @@ function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
             onClick={onClose}
             aria-label="Close menu"
             className="grid h-11 w-11 place-items-center -mr-2"
-            style={{ color: INK_FG }}
+            style={{ color: DRAWER_FG }}
           >
             <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
               <path
@@ -233,7 +238,7 @@ function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
           className="relative flex items-center px-4 text-[16px]"
           style={{
             minHeight: 48,
-            color: isEvents ? "var(--magenta)" : INK_FG,
+            color: isEvents ? "var(--magenta)" : DRAWER_FG,
             fontWeight: isEvents ? 600 : 500,
           }}
         >
@@ -246,7 +251,7 @@ function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
           className="relative flex items-center px-4 text-[16px]"
           style={{
             minHeight: 48,
-            color: isVendors ? "var(--magenta)" : INK_FG,
+            color: isVendors ? "var(--magenta)" : DRAWER_FG,
             fontWeight: isVendors ? 600 : 500,
           }}
         >
@@ -276,7 +281,7 @@ function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
                 className="relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 text-[14px]"
                 style={{
                   minHeight: 48,
-                  color: active ? "var(--magenta)" : INK_FG,
+                  color: active ? "var(--magenta)" : DRAWER_FG,
                   fontWeight: active ? 600 : 500,
                 }}
               >
