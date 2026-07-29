@@ -616,7 +616,7 @@ function EventSheet() {
             amount={fmt(cosBy.drinks.amount)}
             vat={fmt(cosBy.drinks.vat)}
           >
-            <VendorGroupedDrill items={cosBy.drinks.items} />
+            <BillDrill items={cosBy.drinks.items} />
           </ExpandableCategory>
           <ExpandableCategory
             open={isOpen("cos-food")} onToggle={() => toggle("cos-food")}
@@ -627,7 +627,7 @@ function EventSheet() {
             amount={fmt(cosBy.food.amount)}
             vat={cosBy.food.vat === 0 ? <span className="text-muted-foreground">—</span> : fmt(cosBy.food.vat)}
           >
-            <VendorGroupedDrill items={cosBy.food.items} />
+            <BillDrill items={cosBy.food.items} />
           </ExpandableCategory>
           <SectionTotal label="Total cost of sales" amount={cos.amount} vat={cos.vat} head={head} />
           <Milestone label="Gross profit" amount={gp.amount} head={head} marginBase={rev.amount} />
@@ -654,7 +654,7 @@ function EventSheet() {
                 amount={fmt(b.amount)}
                 vat={b.vat === 0 ? <span className="text-muted-foreground">—</span> : fmt(b.vat)}
               >
-                <VendorGroupedDrill items={b.items} />
+                <BillDrill items={b.items} />
               </ExpandableCategory>
             );
           })}
