@@ -56,7 +56,7 @@ function EventsIndex() {
                     <div className="text-right">
                       <div className="num text-[17px] font-semibold text-ink">{fmt(np)}</div>
                       <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        net profit
+                        profit after tax
                       </div>
                     </div>
                   </Link>
