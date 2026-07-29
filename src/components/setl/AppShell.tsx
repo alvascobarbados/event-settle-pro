@@ -75,23 +75,23 @@ function AppBar({
     <header
       className="fixed inset-x-0 top-0 z-40"
       style={{
-        paddingTop: "env(safe-area-inset-top)",
-        paddingLeft: "env(safe-area-inset-left)",
-        paddingRight: "env(safe-area-inset-right)",
-        backgroundColor: "var(--ink)",
-        boxShadow: scrolled ? "0 1px 8px rgba(34,26,32,0.25)" : "none",
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingLeft: "env(safe-area-inset-left, 0px)",
+        paddingRight: "env(safe-area-inset-right, 0px)",
+        backgroundColor: BAR_BG,
+        boxShadow: scrolled ? "0 1px 8px rgba(206,22,99,0.35)" : "none",
         transition: "box-shadow 150ms ease-out",
       }}
     >
-      <div className="flex h-14 items-center gap-1 pr-3">
+      <div className="flex h-[52px] items-center gap-1 pr-3">
         <button
           type="button"
           onClick={onOpen}
           aria-label="Open menu"
           className="grid h-11 w-11 shrink-0 place-items-center"
-          style={{ color: INK_FG }}
+          style={{ color: BAR_FG }}
         >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
             <path
               d="M3 5.5h14M3 10h14M3 14.5h14"
               stroke="currentColor"
@@ -101,8 +101,8 @@ function AppBar({
           </svg>
         </button>
         <span
-          className="setl-wordmark text-[18px] leading-none"
-          style={{ color: INK_FG }}
+          className="setl-wordmark text-[16px] leading-none"
+          style={{ color: BAR_FG }}
         >
           SETL
         </span>
@@ -117,6 +117,7 @@ function AppBar({
     </header>
   );
 }
+
 
 /* Right-side slot preset used by the event page. */
 export function EventBarSlot({
