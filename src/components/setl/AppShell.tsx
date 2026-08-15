@@ -70,7 +70,7 @@ export function AppShell({
             </svg>
           </button>
           <span className="setl-wordmark text-[16px] leading-none" style={{ color: BAR_FG }}>
-            SETL
+            SETLUP
           </span>
           <div
             className="ml-auto min-w-0 flex items-center justify-end transition-opacity duration-150 ease-out"
@@ -173,7 +173,7 @@ function NavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
       >
         <div className="flex items-center justify-between px-4 pt-4 pb-6">
           <span className="setl-wordmark text-[22px]" style={{ color: DRAWER_FG }}>
-            SETL
+            SETLUP
           </span>
           <button
             type="button"
