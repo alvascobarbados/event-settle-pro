@@ -8,9 +8,9 @@ import { AppShell } from "@/components/setl/AppShell";
 export const Route = createFileRoute("/vendors")({
   head: () => ({
     meta: [
-      { title: "Vendors — SETL" },
+      { title: "Vendors — SETLUP" },
       { name: "description", content: "Vendor book: defaults, flags, and bills across events." },
-      { property: "og:title", content: "Vendors — SETL" },
+      { property: "og:title", content: "Vendors — SETLUP" },
       { property: "og:description", content: "Every vendor with its defaults and bill history." },
     ],
   }),

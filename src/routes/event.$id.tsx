@@ -15,9 +15,9 @@ import { fmt, fmtPct, fmtDate } from "@/lib/setl-format";
 export const Route = createFileRoute("/event/$id")({
   head: ({ params }) => ({
     meta: [
-      { title: `${params.id.toUpperCase()} — SETL` },
-      { name: "description", content: `Performance sheet for ${params.id} — SETL.` },
-      { property: "og:title", content: `${params.id.toUpperCase()} — SETL` },
+      { title: `${params.id.toUpperCase()} — SETLUP` },
+      { name: "description", content: `Performance sheet for ${params.id} — SETLUP.` },
+      { property: "og:title", content: `${params.id.toUpperCase()} — SETLUP` },
       { property: "og:description", content: "Performance sheet: revenue, COS, event costs, VAT and net profit." },
     ],
   }),
