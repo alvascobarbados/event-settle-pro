@@ -21,7 +21,7 @@ export const Route = createFileRoute("/event/$id")({
       { property: "og:description", content: "Performance sheet: revenue, COS, event costs, VAT and net profit." },
     ],
   }),
-  loader: ({ params }) => {
+  loader: ({ params }): EventRecord => {
     const e = getEvent(params.id);
     if (!e) throw notFound();
     return e;
@@ -533,7 +533,9 @@ type ViewMode = "summary" | "full";
 type Tab = "performance" | "settlement";
 
 function EventSheet() {
-  const event = Route.useLoaderData();
+  const { id } = Route.useParams();
+  // The loader throws notFound() when the id is unknown, so this is always defined here.
+  const event = getEvent(id) as EventRecord;
   const [tab, setTab] = useState<Tab>("performance");
   const [mode, setMode] = useState<ViewMode>("summary");
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
