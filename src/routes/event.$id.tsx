@@ -534,9 +534,8 @@ type Tab = "performance" | "settlement";
 
 function EventSheet() {
   const { id } = Route.useParams();
-  const found = getEvent(id);
-  if (!found) return null;
-  const event: EventRecord = found;
+  // The loader throws notFound() when the id is unknown, so this is always defined here.
+  const event = getEvent(id) as EventRecord;
   const [tab, setTab] = useState<Tab>("performance");
   const [mode, setMode] = useState<ViewMode>("summary");
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
