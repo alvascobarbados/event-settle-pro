@@ -21,7 +21,7 @@ export const Route = createFileRoute("/event/$id")({
       { property: "og:description", content: "Performance sheet: revenue, COS, event costs, VAT and net profit." },
     ],
   }),
-  loader: ({ params }) => {
+  loader: ({ params }): EventRecord => {
     const e = getEvent(params.id);
     if (!e) throw notFound();
     return e;
