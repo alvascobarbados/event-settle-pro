@@ -533,7 +533,8 @@ type ViewMode = "summary" | "full";
 type Tab = "performance" | "settlement";
 
 function EventSheet() {
-  const event = Route.useLoaderData();
+  const loaded = Route.useLoaderData();
+  const event = loaded as EventRecord;
   const [tab, setTab] = useState<Tab>("performance");
   const [mode, setMode] = useState<ViewMode>("summary");
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
