@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ScrollTop } from "@/components/setlup/Shell";
+import { BillPeek, type PeekTarget } from "@/components/setlup/BillPeek";
 import {
   LedgerHead,
   LedgerRow,
