@@ -16,6 +16,7 @@ import { budgetReportOf, cashOf, pnlOf, vatReportOf, type SectionResult } from "
 import { money, pct, perHead } from "@/lib/setlup/format";
 import { useSetlup } from "@/lib/setlup/store";
 import { exportVatPdf } from "@/lib/setlup/pdf-export";
+import { PullToRefresh, SwipeRow } from "@/components/setlup/SwipeRow";
 
 export const Route = createFileRoute("/event/$id/reports")({
   head: () => ({
@@ -34,7 +35,7 @@ type View = "summary" | "detail";
 
 function Reports() {
   const { id } = Route.useParams();
-  const { db, getEvent, setLineVatExcluded, promoterName } = useSetlup();
+  const { db, getEvent, setLineVatExcluded, promoterName, deleteLine, refresh } = useSetlup();
   const event = getEvent(id);
   const [tab, setTab] = useState<Tab>("pnl");
   const [view, setView] = useState<View>("summary");
@@ -110,9 +111,8 @@ function Reports() {
           {open[r.line.id] &&
             r.children.map((c) => {
               const linked = fileFor(c.line.id);
-              return (
+              const row = (
                 <LedgerRow
-                  key={c.line.id}
                   label={c.line.name}
                   detail={[c.line.detail, c.line.ref ? `inv ${c.line.ref}` : null]
                     .filter(Boolean)
@@ -128,6 +128,18 @@ function Reports() {
                   }
                 />
               );
+              /* budget lines on a planning event can be swiped away */
+              if (event.stage !== "planning") return <div key={c.line.id}>{row}</div>;
+              return (
+                <SwipeRow
+                  key={c.line.id}
+                  confirmTitle="Delete this budget line?"
+                  confirmBody="Any attached document stays, unlinked."
+                  onDelete={() => deleteLine(c.line.id)}
+                >
+                  {row}
+                </SwipeRow>
+              );
             })}
         </div>
       ))}
@@ -137,6 +149,7 @@ function Reports() {
 
 
   return (
+    <PullToRefresh onRefresh={refresh}>
     <div className="px-4 pb-10 pt-4">
       <ScrollTop />
       <PillGroup<Tab>
@@ -312,5 +325,6 @@ function Reports() {
 
       <BillPeek target={peekTarget} onClose={() => setPeekLineId(null)} />
     </div>
+    </PullToRefresh>
   );
 }

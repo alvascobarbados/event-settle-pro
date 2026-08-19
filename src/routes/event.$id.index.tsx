@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ScrollTop } from "@/components/setlup/Shell";
+import { PullToRefresh } from "@/components/setlup/SwipeRow";
 import { Milestone, StatLine } from "@/components/setlup/Ledger";
 import { Card, Chip, FinePrint, LockedBanner, PrimaryButton, SectionLabel, StageBadge } from "@/components/setlup/ui";
 import {
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/event/$id/")({
 
 function EventHome() {
   const { id } = Route.useParams();
-  const { db, getEvent, markVatExported, closeEvent, reopenEvent, setStage, showToast } = useSetlup();
+  const { db, getEvent, markVatExported, closeEvent, reopenEvent, setStage, showToast, refresh } = useSetlup();
   const event = getEvent(id);
   if (!event) return null;
 
@@ -39,6 +40,7 @@ function EventHome() {
   const path = pathToClose(db, event);
 
   return (
+    <PullToRefresh onRefresh={refresh}>
     <div className="px-4 pb-10 pt-4">
       <ScrollTop />
 
