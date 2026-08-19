@@ -34,6 +34,7 @@ import {
   type Vendor,
 } from "./types";
 import { todayIso } from "./format";
+import { perfCommitOnPaint, perfMark, perfPhase } from "./perf";
 
 let seq = 0;
 const uid = (p: string) => `${p}-${Date.now().toString(36)}-${(seq++).toString(36)}`;
@@ -185,8 +186,11 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    const authStart = performance.now();
     supabase.auth.getSession().then(({ data }) => {
+      perfMark("auth", performance.now() - authStart);
       if (!active) return;
+      if (!data.session) perfCommitOnPaint();
       setUserId(data.session?.user.id ?? null);
       setUserEmail(data.session?.user.email ?? null);
       setLoading(!!data.session);
@@ -215,12 +219,13 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     (async () => {
       try {
-        const p = await ensurePromoter();
+        const p = await perfPhase("promoter", () => ensurePromoter());
         if (active) setPromoter(p);
-        const next = await loadDb(p);
+        const next = await perfPhase("data", () => loadDb(p));
         /* one-time relocation of legacy per-user upload paths */
         const moved = await migrateStoragePaths(p, userId, next);
         if (active) setDb(moved ? await loadDb(p) : next);
+        if (active) perfCommitOnPaint();
 
       } catch (e) {
         console.error(e);
