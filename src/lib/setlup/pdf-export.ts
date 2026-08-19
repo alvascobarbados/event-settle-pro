@@ -2,7 +2,7 @@ import { jsPDF } from "jspdf";
 
 import { fmtDate, fmtEventNumber, money } from "./format";
 import type { VatReport } from "./compute";
-import type { Event } from "./types";
+import type { EventRecord } from "./types";
 
 /**
  * Clean A4 VAT return. Excluded rows are simply absent — the document carries no
@@ -13,7 +13,7 @@ export function exportVatPdf({
   promoterName,
   vat,
 }: {
-  event: Event;
+  event: EventRecord;
   promoterName: string;
   vat: VatReport;
 }): void {
