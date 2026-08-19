@@ -46,7 +46,7 @@ function Reports() {
 
   const peekFile = peekLineId ? fileFor(peekLineId) : undefined;
   const peekRow = peekLineId
-    ? [pnl.revenue, pnl.cos, pnl.expenses]
+    ? [pnl.revenue, pnl.expenses]
         .flatMap((s) => s.rows.flatMap((r) => r.children))
         .find((c) => c.line.id === peekLineId)
     : undefined;
@@ -130,12 +130,6 @@ function Reports() {
           <Card className="mt-2 overflow-hidden pt-3">
             <LedgerHead vatLabel="VAT in" />
             {renderSection("Revenue", pnl.revenue, "Total revenue")}
-            {renderSection("Cost of sales", pnl.cos, "Total cost of sales")}
-            <Milestone
-              label="Gross profit"
-              amount={pnl.grossProfit}
-              sub={`${pct(pnl.grossProfit, pnl.revenue.amount)} margin`}
-            />
             {renderSection("Expenses", pnl.expenses, "Total expenses")}
             <Milestone
               label="Profit before tax"
@@ -200,7 +194,7 @@ function Reports() {
           </div>
           <Card className="mt-2 overflow-hidden">
             <StatLine label="Output VAT" sub="VAT within revenue" amount={pnl.outputVat} />
-            <StatLine label="Input VAT" sub="VAT within cost of sales and expenses" amount={pnl.inputVat} />
+            <StatLine label="Input VAT" sub="VAT within expenses" amount={pnl.inputVat} />
             <Milestone
               label={pnl.netVat >= 0 ? "Net VAT payable" : "Net VAT refundable"}
               amount={Math.abs(pnl.netVat)}

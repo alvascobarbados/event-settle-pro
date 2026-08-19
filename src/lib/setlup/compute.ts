@@ -181,14 +181,11 @@ export function cashOf(db: Db, event: EventRecord) {
 
 export function budgetReportOf(db: Db, event: EventRecord) {
   const pnl = pnlOf(db, event);
-  const b = event.budgetBaseline ?? { revenue: 0, cos: 0, expenses: 0 };
-  const budgetGross = round2(b.revenue - b.cos);
-  const budgetProfit = round2(budgetGross - b.expenses);
+  const b = event.budgetBaseline ?? { revenue: 0, expenses: 0 };
+  const budgetProfit = round2(b.revenue - b.expenses);
   return {
     rows: [
       { name: "Revenue", budget: b.revenue, actual: pnl.revenue.amount, favourableWhenOver: true },
-      { name: "Cost of sales", budget: b.cos, actual: pnl.cos.amount, favourableWhenOver: false },
-      { name: "Gross profit", budget: budgetGross, actual: pnl.grossProfit, favourableWhenOver: true },
       { name: "Expenses", budget: b.expenses, actual: pnl.expenses.amount, favourableWhenOver: false },
     ],
     budgetProfit,

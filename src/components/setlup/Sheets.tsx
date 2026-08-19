@@ -312,7 +312,7 @@ export function ActionSheet({
           <Field label="P&L line">
             <SelectInput value={lineId} onChange={(e) => setLineId(e.target.value)}>
               <option value="">Unassigned</option>
-              {lineOptions(mode === "bill" ? ["cos", "expenses"] : ["revenue"])}
+              {lineOptions(mode === "bill" ? ["expenses"] : ["revenue"])}
             </SelectInput>
           </Field>
           <Toggle label="VAT exempt" checked={vatExempt} onChange={setVatExempt} />
@@ -347,7 +347,7 @@ export function ActionSheet({
           <Field label="Section">
             <SelectInput value={section} onChange={(e) => setSection(e.target.value as Section)}>
               <option value="revenue">Revenue</option>
-              <option value="cos">Cost of sales</option>
+              
               <option value="expenses">Expenses</option>
             </SelectInput>
           </Field>
@@ -405,7 +405,7 @@ export function ActionSheet({
           <Field label="Link to line">
             <SelectInput value={lineId} onChange={(e) => setLineId(e.target.value)}>
               <option value="">Unlinked</option>
-              {lineOptions(["revenue", "cos", "expenses"])}
+              {lineOptions(["revenue", "expenses"])}
             </SelectInput>
           </Field>
           <div className="mt-5">
