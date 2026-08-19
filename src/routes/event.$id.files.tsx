@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ScrollTop } from "@/components/setlup/Shell";
 import { BillPeek } from "@/components/setlup/BillPeek";
 import { RouteSheet } from "@/components/setlup/Sheets";
-import { ScanBillFilesSheet, ScanBillSheet } from "@/components/setlup/ScanBill";
+import { EditBillSheet, ScanBillFilesSheet, ScanBillSheet } from "@/components/setlup/ScanBill";
+import { PullToRefresh, SwipeRow } from "@/components/setlup/SwipeRow";
 import { Card, Chip, EmptyState, PillGroup, PrimaryButton, SectionLabel } from "@/components/setlup/ui";
 import { CategoryRouter, Sheet } from "@/components/setlup/Sheets";
 import { categoryLabel } from "@/lib/setlup/compute";
@@ -28,8 +29,9 @@ type Filter = "all" | "linked" | "unlinked";
 
 function Files() {
   const { id } = Route.useParams();
-  const { db, getEvent } = useSetlup();
+  const { db, getEvent, deleteFile, refresh } = useSetlup();
   const event = getEvent(id);
+  const [editBillId, setEditBillId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [peekId, setPeekId] = useState<string | null>(null);
   const [routeFileId, setRouteFileId] = useState<string | null>(null);
@@ -45,6 +47,7 @@ function Files() {
   );
 
   return (
+    <PullToRefresh onRefresh={refresh}>
     <div className="px-4 pb-10 pt-4">
       <ScrollTop />
       <PillGroup<Filter>
@@ -84,13 +87,25 @@ function Files() {
             />
           ) : (
             files.map((f) => (
-              <FileRow
+              <SwipeRow
                 key={f.id}
-                file={f}
-                onOpen={() => setPeekId(f.id)}
-                onRoute={() => setRouteFileId(f.id)}
-                onScan={() => setScanFileId(f.id)}
-              />
+                confirmTitle="Delete this document?"
+                confirmBody={
+                  f.lineId ? "The booked bill stays — only the document is removed" : undefined
+                }
+                onDelete={() => deleteFile(f.id)}
+              >
+                <FileRow
+                  file={f}
+                  onOpen={() => setPeekId(f.id)}
+                  onRoute={() => setRouteFileId(f.id)}
+                  onScan={() => setScanFileId(f.id)}
+                  onEdit={() => {
+                    const bill = db.bills.find((b) => b.lineId === f.lineId);
+                    if (bill) setEditBillId(bill.id);
+                  }}
+                />
+              </SwipeRow>
             ))
           )}
         </Card>
@@ -125,7 +140,14 @@ function Files() {
         }
         onClose={() => setPeekId(null)}
       />
+
+      <EditBillSheet
+        bill={editBillId ? db.bills.find((b) => b.id === editBillId) : undefined}
+        open={!!editBillId}
+        onClose={() => setEditBillId(null)}
+      />
     </div>
+    </PullToRefresh>
   );
 }
 
@@ -189,11 +211,13 @@ function FileRow({
   onOpen,
   onRoute,
   onScan,
+  onEdit,
 }: {
   file: FileRecord;
   onOpen: () => void;
   onRoute: () => void;
   onScan: () => void;
+  onEdit: () => void;
 }) {
   const { db, showToast, promoterId, setFileStoragePath } = useSetlup();
   const [busy, setBusy] = useState(false);
@@ -255,6 +279,17 @@ function FileRow({
     </button>
   ) : null;
 
+  const editBtn = f.lineId && db.bills.some((b) => b.lineId === f.lineId) ? (
+    <button
+      type="button"
+      onClick={onEdit}
+      className="shrink-0 self-center text-[11.5px] font-extrabold uppercase tracking-[0.06em]"
+      style={{ color: "var(--accent-c)" }}
+    >
+      Edit
+    </button>
+  ) : null;
+
   const routeBtn = (
     <button
       type="button"
@@ -299,6 +334,7 @@ function FileRow({
         {body}
       </button>
       {scanBtn}
+      {editBtn}
       {routeBtn}
     </div>
   );
