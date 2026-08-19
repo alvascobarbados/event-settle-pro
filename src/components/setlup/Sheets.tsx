@@ -217,6 +217,7 @@ export function ActionSheet({
   const [fileType, setFileType] = useState<"PDF" | "IMG">("PDF");
   const [picked, setPicked] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [chained, setChained] = useState(false);
 
   const reset = () => {
     setCounterparty("");
@@ -232,6 +233,8 @@ export function ActionSheet({
     onClose();
     window.setTimeout(() => {
       setMode("menu");
+      setChained(false);
+      setPicked(null);
       reset();
     }, 220);
   };
