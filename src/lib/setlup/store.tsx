@@ -8,7 +8,17 @@ import {
   type ReactNode,
 } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { fileToRow, ledgerToRow, loadDb, seedForUser } from "./cloud";
+import {
+  createEventRow,
+  ensurePromoter,
+  fileToRow,
+  ledgerToRow,
+  loadDb,
+  migrateStoragePaths,
+  seedForPromoter,
+  storagePrefix,
+  type Promoter,
+} from "./cloud";
 import { importUv2024Bills, type ImportResult } from "./import-bills";
 import {
   BRAND_ACCENT,
@@ -64,6 +74,8 @@ interface StoreValue {
   userEmail: string | null;
   authReady: boolean;
   loading: boolean;
+  promoterId: string | null;
+  promoterName: string | null;
   resetToSeed: () => Promise<void>;
   importUv2024: (onProgress?: (done: number, total: number) => void) => Promise<ImportResult>;
   setFileStoragePath: (fileId: string, storagePath: string, type?: FileRecord["type"]) => void;
@@ -77,6 +89,7 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [promoter, setPromoter] = useState<Promoter | null>(null);
   const [authReady, setAuthReady] = useState(false);
   /* true until we know there is no session, or until the signed-in user's data has loaded */
   const [loading, setLoading] = useState(true);
@@ -101,7 +114,10 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       setUserEmail(session?.user.email ?? null);
       setLoading(!!session);
       setAuthReady(true);
-      if (!session) setDb(EMPTY_DB);
+      if (!session) {
+        setDb(EMPTY_DB);
+        setPromoter(null);
+      }
     });
     return () => {
       active = false;
@@ -115,9 +131,13 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     (async () => {
       try {
-        const loaded = await loadDb(userId);
-        const next = loaded.events.length === 0 ? await seedForUser(userId) : loaded;
-        if (active) setDb(next);
+        const p = await ensurePromoter();
+        if (active) setPromoter(p);
+        const loaded = await loadDb(p);
+        const next = loaded.events.length === 0 ? await seedForPromoter(p, userId) : loaded;
+        /* one-time relocation of legacy per-user upload paths */
+        const moved = await migrateStoragePaths(p, userId, next);
+        if (active) setDb(moved ? await loadDb(p) : next);
       } catch (e) {
         console.error(e);
         showToast("Could not load your data");
@@ -138,6 +158,10 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
     const uidOrThrow = () => {
       if (!userId) throw new Error("No signed-in user");
       return userId;
+    };
+    const promoterOrThrow = (): Promoter => {
+      if (!promoter) throw new Error("No promoter for this account");
+      return promoter;
     };
 
     const patchEvent = (eventId: string, patch: Partial<EventRecord>, row: Record<string, unknown>) => {
@@ -160,6 +184,8 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       userEmail,
       authReady,
       loading,
+      promoterId: promoter?.id ?? null,
+      promoterName: promoter?.name ?? null,
       setFileStoragePath: (fileId, storagePath, type) => {
         setDb((d) => ({
           ...d,
@@ -174,28 +200,36 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
           .then(({ error }) => error && fail(error));
       },
       resetToSeed: async () => {
-        const id = uidOrThrow();
+        const uid2 = uidOrThrow();
+        const p = promoterOrThrow();
         setLoading(true);
         try {
-          const list = await supabase.storage.from("setlup-files").list(id, { limit: 1000 });
-          const paths: string[] = [];
-          for (const entry of list.data ?? []) {
-            if (entry.id) {
-              paths.push(`${id}/${entry.name}`);
-              continue;
+          for (const root of [p.id, uid2]) {
+            const list = await supabase.storage.from("setlup-files").list(root, { limit: 1000 });
+            const paths: string[] = [];
+            for (const entry of list.data ?? []) {
+              if (entry.id) {
+                paths.push(`${root}/${entry.name}`);
+                continue;
+              }
+              const sub = await supabase.storage
+                .from("setlup-files")
+                .list(`${root}/${entry.name}`, { limit: 1000 });
+              for (const f of sub.data ?? []) paths.push(`${root}/${entry.name}/${f.name}`);
             }
-            const sub = await supabase.storage
-              .from("setlup-files")
-              .list(`${id}/${entry.name}`, { limit: 1000 });
-            for (const f of sub.data ?? []) paths.push(`${id}/${entry.name}/${f.name}`);
+            if (paths.length > 0) await supabase.storage.from("setlup-files").remove(paths);
           }
-          if (paths.length > 0) await supabase.storage.from("setlup-files").remove(paths);
 
-          for (const table of ["payments", "money_in", "bills", "files", "lines", "events"] as const) {
-            const { error } = await supabase.from(table).delete().eq("user_id", id);
+          const eventIds = db.events.map((e) => e.id);
+          if (eventIds.length > 0) {
+            for (const table of ["payments", "money_in", "bills", "files", "lines"] as const) {
+              const { error } = await supabase.from(table).delete().in("event_id", eventIds);
+              if (error) throw error;
+            }
+            const { error } = await supabase.from("events").delete().in("id", eventIds);
             if (error) throw error;
           }
-          const next = await seedForUser(id);
+          const next = await seedForPromoter(p, uid2);
           setDb(next);
           showToast("Data reset to seed");
         } catch (e) {
@@ -206,15 +240,17 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
         }
       },
       importUv2024: async (onProgress) => {
-        const id = uidOrThrow();
-        const result = await importUv2024Bills(id, db, onProgress);
-        const next = await loadDb(id);
+        const uid2 = uidOrThrow();
+        const p = promoterOrThrow();
+        const result = await importUv2024Bills(p.id, uid2, db, onProgress);
+        const next = await loadDb(p);
         setDb(next);
         return result;
       },
       signOut: async () => {
         await supabase.auth.signOut();
         setDb(EMPTY_DB);
+        setPromoter(null);
       },
       getEvent: (id) => db.events.find((e) => e.id === id),
       addPayment: (kind, recordId, amount, date) => {
@@ -230,7 +266,8 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
           .from("payments")
           .insert({
             id,
-            user_id: uidOrThrow(),
+            event_id:
+              (kind === "in" ? db.moneyIn : db.bills).find((r) => r.id === recordId)?.eventId ?? null,
             parent_kind: kind,
             parent_id: recordId,
             amount,
@@ -243,7 +280,7 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
         setDb((d) => ({ ...d, moneyIn: [...d.moneyIn, rec] }));
         void supabase
           .from("money_in")
-          .insert(ledgerToRow(rec, uidOrThrow()) as never)
+          .insert(ledgerToRow(rec) as never)
           .then(({ error }) => error && fail(error));
       },
       addBill: (input) => {
@@ -251,7 +288,7 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
         setDb((d) => ({ ...d, bills: [...d.bills, rec] }));
         void supabase
           .from("bills")
-          .insert(ledgerToRow(rec, uidOrThrow()) as never)
+          .insert(ledgerToRow(rec) as never)
           .then(({ error }) => error && fail(error));
       },
       addBudgetLine: (eventId, section, name, amount, vatExempt) => {
@@ -271,7 +308,6 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
           .from("lines")
           .insert({
             id: line.id,
-            user_id: uidOrThrow(),
             event_id: eventId,
             section,
             name,
@@ -287,7 +323,7 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
         setDb((d) => ({ ...d, files: [...d.files, rec] }));
         void supabase
           .from("files")
-          .insert(fileToRow(rec, uidOrThrow()) as never)
+          .insert(fileToRow(rec) as never)
           .then(({ error }) => error && fail(error));
       },
       setStage: (eventId, stage) => patchEvent(eventId, { stage }, { stage }),
@@ -316,38 +352,34 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
           ],
         };
         setDb((d) => ({ ...d, events: [event, ...d.events] }));
-        void supabase
-          .from("events")
-          .insert({
-            id,
-            user_id: uidOrThrow(),
-            name: event.name,
-            date: event.date,
-            venue: event.venue,
-            capacity: event.capacity ?? null,
-            stage: "planning",
-            accent: event.accent,
-            as_of: event.asOf,
-            planning_rows: event.planningRows,
-          } as never)
-          .then(({ error }) => error && fail(error));
+        void createEventRow(promoterOrThrow().id, event)
+          .then((eventNumber) => {
+            if (eventNumber === undefined) return;
+            setDb((d) => ({
+              ...d,
+              events: d.events.map((e) => (e.id === id ? { ...e, eventNumber } : e)),
+            }));
+          })
+          .catch(fail);
         return id;
       },
       updateSettings: (patch) => {
         const next = { ...db.settings, ...patch };
         setDb((d) => ({ ...d, settings: next }));
+        const p = promoterOrThrow();
+        setPromoter({ ...p, name: next.business, currency: next.currency, vatRate: next.vatRate });
         void supabase
-          .from("settings")
-          .upsert({
-            user_id: uidOrThrow(),
+          .from("promoters")
+          .update({
+            name: next.business,
             currency: next.currency,
             vat_rate: next.vatRate,
-            business: next.business,
           } as never)
+          .eq("id", p.id)
           .then(({ error }) => error && fail(error));
       },
     };
-  }, [db, toast, showToast, userId, userEmail, authReady, loading]);
+  }, [db, toast, showToast, userId, userEmail, authReady, loading, promoter]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
