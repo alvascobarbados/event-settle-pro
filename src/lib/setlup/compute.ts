@@ -101,19 +101,14 @@ function section(db: Db, event: EventRecord, sec: Section, budgeted: boolean): S
 export function pnlOf(db: Db, event: EventRecord): Pnl {
   const budgeted = event.stage === "planning";
   const revenue = section(db, event, "revenue", budgeted);
-  const cos = section(db, event, "cos", budgeted);
   const expenses = section(db, event, "expenses", budgeted);
-  const grossProfit = Math.round((revenue.amount - cos.amount) * 100) / 100;
-  const profitBeforeTax = Math.round((grossProfit - expenses.amount) * 100) / 100;
+  const profitBeforeTax = Math.round((revenue.amount - expenses.amount) * 100) / 100;
   const outputVat = revenue.vat;
-  const inputVat =
-    event.inputVatOverride ?? Math.round((cos.vat + expenses.vat) * 100) / 100;
+  const inputVat = event.inputVatOverride ?? Math.round(expenses.vat * 100) / 100;
   return {
     budgeted,
     revenue,
-    cos,
     expenses,
-    grossProfit,
     profitBeforeTax,
     outputVat,
     inputVat,
@@ -122,7 +117,7 @@ export function pnlOf(db: Db, event: EventRecord): Pnl {
 }
 
 export function hasChildren(pnl: Pnl): boolean {
-  return [pnl.revenue, pnl.cos, pnl.expenses].some((s) => s.rows.some((r) => r.children.length > 0));
+  return [pnl.revenue, pnl.expenses].some((s) => s.rows.some((r) => r.children.length > 0));
 }
 
 /* ------------------------------------------------------------------ */
