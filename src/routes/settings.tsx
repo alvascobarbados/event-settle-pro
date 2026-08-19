@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppBar, PageScroll } from "@/components/setlup/Shell";
 import { Field, TextInput } from "@/components/setlup/Sheets";
 import { Card, FinePrint, PrimaryButton, SectionLabel } from "@/components/setlup/ui";
 import { useSetlup } from "@/lib/setlup/store";
+import { loadManifest, uv2024EventId } from "@/lib/setlup/import-bills";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -18,11 +19,24 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
-  const { db, updateSettings, showToast, userEmail, signOut, resetToSeed } = useSetlup();
+  const { db, updateSettings, showToast, userEmail, signOut, resetToSeed, importUv2024, userId } = useSetlup();
   const [business, setBusiness] = useState(db.settings.business);
   const [currency, setCurrency] = useState(db.settings.currency);
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [manifestReady, setManifestReady] = useState(false);
+  const [importing, setImporting] = useState<string | null>(null);
+
+  const uv24Files = userId ? db.files.filter((f) => f.eventId === uv2024EventId(userId)).length : 0;
+  const canImport = manifestReady && uv24Files < 60;
+
+  useEffect(() => {
+    let active = true;
+    void loadManifest().then((m) => active && setManifestReady(!!m && m.length > 0));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <>
@@ -89,6 +103,30 @@ function SettingsPage() {
                 Sign out
               </button>
             </div>
+            {canImport && (
+              <div className="dashed-row px-4 py-3.5">
+                <button
+                  type="button"
+                  disabled={!!importing}
+                  onClick={async () => {
+                    setImporting("0 / 0…");
+                    try {
+                      const res = await importUv2024((done, total) => setImporting(`${done} / ${total}…`));
+                      showToast(`Imported ${res.imported + res.updated} · skipped ${res.skipped}`);
+                    } catch (e) {
+                      console.error(e);
+                      showToast("Import failed");
+                    } finally {
+                      setImporting(null);
+                    }
+                  }}
+                  className="text-[13px] font-bold uppercase tracking-[0.06em] disabled:opacity-60"
+                  style={{ color: "var(--accent-c)" }}
+                >
+                  {importing ? `Importing ${importing}` : "Import UV 2024 bills"}
+                </button>
+              </div>
+            )}
             <div className="px-4 py-3.5">
               <button
                 type="button"

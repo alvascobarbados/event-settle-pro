@@ -9,6 +9,7 @@ import {
 } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fileToRow, ledgerToRow, loadDb, seedForUser } from "./cloud";
+import { importUv2024Bills, type ImportResult } from "./import-bills";
 import {
   BRAND_ACCENT,
   type Db,
@@ -64,6 +65,7 @@ interface StoreValue {
   authReady: boolean;
   loading: boolean;
   resetToSeed: () => Promise<void>;
+  importUv2024: (onProgress?: (done: number, total: number) => void) => Promise<ImportResult>;
   setFileStoragePath: (fileId: string, storagePath: string, type?: FileRecord["type"]) => void;
   signOut: () => Promise<void>;
 }
@@ -202,6 +204,13 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
         } finally {
           setLoading(false);
         }
+      },
+      importUv2024: async (onProgress) => {
+        const id = uidOrThrow();
+        const result = await importUv2024Bills(id, db, onProgress);
+        const next = await loadDb(id);
+        setDb(next);
+        return result;
       },
       signOut: async () => {
         await supabase.auth.signOut();
