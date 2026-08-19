@@ -1,0 +1,1 @@
+ALTER TABLE public.lines ADD COLUMN IF NOT EXISTS detail text, ADD COLUMN IF NOT EXISTS ref text;
