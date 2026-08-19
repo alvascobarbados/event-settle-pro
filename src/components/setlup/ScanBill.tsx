@@ -334,7 +334,37 @@ export function ScanBillPanel({
       <div className="mt-5">
         <PrimaryButton onClick={() => !saving && void save()}>{saving ? "Saving…" : "Save bill"}</PrimaryButton>
       </div>
+      {!existing && (
+        <button
+          type="button"
+          onClick={() => !saving && void skip()}
+          className="mt-3 h-11 w-full rounded-full bg-app text-[12.5px] font-extrabold uppercase tracking-[0.07em] text-ink"
+        >
+          {queue.length > 1 && qIndex + 1 < queue.length ? "Skip this one" : "Cancel — keep file only"}
+        </button>
+      )}
     </>
+  );
+}
+
+/** Bills handed in from a drop or an outside picker. */
+export function ScanBillFilesSheet({
+  eventId,
+  files,
+  open,
+  onClose,
+}: {
+  eventId: string;
+  files: File[];
+  open: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <Sheet open={open} onClose={onClose} title="Scan bill">
+      {open && files.length > 0 && (
+        <ScanBillPanel key={files[0]!.name + files.length} eventId={eventId} initialFiles={files} onDone={onClose} />
+      )}
+    </Sheet>
   );
 }
 
