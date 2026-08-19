@@ -76,26 +76,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Event Set" },
-      { name: "description", content: "Manage and reconcile your event performance, bills and VAT." },
-      { name: "author", content: "SETL" },
-      { property: "og:title", content: "Event Set" },
-      { property: "og:description", content: "Manage and reconcile your event performance, bills and VAT." },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { title: "SETLUP — event budgeting & reconciliation" },
+      { name: "description", content: "Budget, manage and reconcile Caribbean events on the go — money in, bills, VAT and close-out in BBD." },
+      { name: "author", content: "SETLUP" },
+      { property: "og:title", content: "SETLUP — event budgeting & reconciliation" },
+      { property: "og:description", content: "Budget, manage and reconcile Caribbean events on the go — money in, bills, VAT and close-out in BBD." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "theme-color", content: "#CE1663" },
-      { name: "twitter:title", content: "Event Set" },
-      { name: "twitter:description", content: "Manage and reconcile your event performance, bills and VAT." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/36b49ed6-4973-4edc-9a7f-41e2e8f04937/id-preview-61dd2662--5b36a756-aa55-42f4-a8b5-9248f8006ce3.lovable.app-1785313989295.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/36b49ed6-4973-4edc-9a7f-41e2e8f04937/id-preview-61dd2662--5b36a756-aa55-42f4-a8b5-9248f8006ce3.lovable.app-1785313989295.png" },
+      { name: "twitter:title", content: "SETLUP — event budgeting & reconciliation" },
+      { name: "twitter:description", content: "Budget, manage and reconcile Caribbean events on the go — money in, bills, VAT and close-out in BBD." },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Unbounded:wght@700&family=Archivo:wght@400;500;600;700;800&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -123,8 +124,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <SetlupProvider>
+        <AppFrame>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </AppFrame>
+      </SetlupProvider>
     </QueryClientProvider>
   );
 }
