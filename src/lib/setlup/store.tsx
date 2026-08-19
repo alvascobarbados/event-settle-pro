@@ -76,7 +76,11 @@ interface StoreValue {
   loading: boolean;
   promoterId: string | null;
   promoterName: string | null;
+  promoterCode: string | null;
+  promoterUsername: string | null;
+  setUsername: (username: string) => Promise<boolean>;
   resetToSeed: () => Promise<void>;
+
   importUv2024: (onProgress?: (done: number, total: number) => void) => Promise<ImportResult>;
   setFileStoragePath: (fileId: string, storagePath: string, type?: FileRecord["type"]) => void;
   signOut: () => Promise<void>;
@@ -133,11 +137,11 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       try {
         const p = await ensurePromoter();
         if (active) setPromoter(p);
-        const loaded = await loadDb(p);
-        const next = loaded.events.length === 0 ? await seedForPromoter(p, userId) : loaded;
+        const next = await loadDb(p);
         /* one-time relocation of legacy per-user upload paths */
         const moved = await migrateStoragePaths(p, userId, next);
         if (active) setDb(moved ? await loadDb(p) : next);
+
       } catch (e) {
         console.error(e);
         showToast("Could not load your data");
