@@ -8,7 +8,7 @@ import type { FileRecord } from "@/lib/setlup/types";
 export interface PeekTarget {
   label: string;
   detail?: string;
-  amount: number;
+  amount?: number;
   vat?: number;
   file: FileRecord;
 }
@@ -80,7 +80,7 @@ export function BillPeek({ target, onClose }: { target: PeekTarget | null; onClo
             <div className="text-[14.5px] font-extrabold leading-snug text-ink">{target?.label}</div>
             {target?.detail && <div className="mt-0.5 text-[11.5px] text-mute">{target.detail}</div>}
             <div className="num mt-2 text-[13px] font-bold text-ink">
-              {target ? money(target.amount) : ""}
+              {target?.amount !== undefined ? money(target.amount) : ""}
               {target?.vat !== undefined && (
                 <span className="ml-2 text-[11.5px] font-semibold text-vat">
                   VAT {target.vat === 0 ? "—" : money(target.vat)}
