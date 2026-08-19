@@ -79,7 +79,7 @@ function SettingsPage() {
               <span className="text-[14px] font-semibold text-ink">Signed in as</span>
               <span className="text-[13px] font-semibold text-mute">{userEmail ?? "—"}</span>
             </div>
-            <div className="px-4 py-3.5">
+            <div className="dashed-row px-4 py-3.5">
               <button
                 type="button"
                 onClick={() => void signOut()}
@@ -89,7 +89,60 @@ function SettingsPage() {
                 Sign out
               </button>
             </div>
+            <div className="px-4 py-3.5">
+              <button
+                type="button"
+                disabled={resetting}
+                onClick={() => setConfirmReset(true)}
+                className="text-[13px] font-bold uppercase tracking-[0.06em] disabled:opacity-60"
+                style={{ color: "var(--red)" }}
+              >
+                {resetting ? "Resetting…" : "Reset data to seed"}
+              </button>
+            </div>
           </Card>
+
+          {confirmReset && (
+            <>
+              <div
+                className="fixed inset-0 z-[80]"
+                style={{ backgroundColor: "rgba(34,26,32,0.45)" }}
+                onClick={() => setConfirmReset(false)}
+              />
+              <div
+                role="dialog"
+                aria-label="Reset data to seed"
+                className="fixed left-1/2 top-1/2 z-[90] w-[86%] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-[18px] bg-card p-5"
+              >
+                <div className="text-[15px] font-extrabold text-ink">Reset data to seed</div>
+                <p className="mt-2 text-[13px] leading-snug text-mute">
+                  This deletes all your SETLUP data and reloads the verified seed. Uploaded PDFs are removed too.
+                </p>
+                <div className="mt-5 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmReset(false)}
+                    className="h-11 flex-1 rounded-full bg-app text-[12.5px] font-extrabold uppercase tracking-[0.07em] text-ink"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setConfirmReset(false);
+                      setResetting(true);
+                      await resetToSeed();
+                      setResetting(false);
+                    }}
+                    className="h-11 flex-1 rounded-full text-[12.5px] font-extrabold uppercase tracking-[0.07em] text-white"
+                    style={{ backgroundColor: "var(--red)" }}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="mt-6 text-[11.5px] text-mute">SETLUP v1.0 · {db.events.length} events synced to your account</div>
         </div>
