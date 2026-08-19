@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ScrollTop } from "@/components/setlup/Shell";
 import { BillPeek } from "@/components/setlup/BillPeek";
 import { RouteSheet } from "@/components/setlup/Sheets";
-import { ScanBillSheet } from "@/components/setlup/ScanBill";
+import { ScanBillFilesSheet, ScanBillSheet } from "@/components/setlup/ScanBill";
 import { Card, Chip, EmptyState, PillGroup, PrimaryButton, SectionLabel } from "@/components/setlup/ui";
 import { CategoryRouter, Sheet } from "@/components/setlup/Sheets";
 import { categoryLabel } from "@/lib/setlup/compute";
@@ -76,10 +76,7 @@ function Files() {
           if (list.length) setDropped(list);
         }}
       >
-        <Card
-          className="mt-2 overflow-hidden transition-shadow"
-          style={dragging ? { outline: "2px dashed var(--accent-c)", outlineOffset: 2 } : undefined}
-        >
+        <Card className={`mt-2 overflow-hidden ${dragging ? "ring-2 ring-offset-2" : ""}`}>
           {files.length === 0 ? (
             <EmptyState
               title="No files here"
