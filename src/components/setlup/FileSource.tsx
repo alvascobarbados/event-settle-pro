@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 
 /**
- * The three ways a document gets into SETLUP.
+ * The two ways a document gets into SETLUP.
  *
  * Both file inputs are real, mounted inputs wrapped in a <label>, so the tap
  * is the browser's own gesture on the input — no programmatic .click(), which
