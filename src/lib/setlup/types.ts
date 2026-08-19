@@ -88,6 +88,8 @@ export interface FileRecord {
   date: string;
   lineId?: string;
   amount?: number;
+  /** Path in the private storage bucket. */
+  storagePath?: string;
 }
 
 export interface Settings {
