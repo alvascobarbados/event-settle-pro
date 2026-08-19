@@ -44,6 +44,8 @@ export function LedgerRow({
   expandable,
   open,
   onToggle,
+  hasFile,
+  onSelect,
 }: {
   label: string;
   detail?: string;
@@ -54,6 +56,8 @@ export function LedgerRow({
   expandable?: boolean;
   open?: boolean;
   onToggle?: () => void;
+  hasFile?: boolean;
+  onSelect?: () => void;
 }) {
   const inner = (
     <div
