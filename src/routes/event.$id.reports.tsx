@@ -73,13 +73,13 @@ function Reports() {
     <div className="px-4 pb-10 pt-4">
       <ScrollTop />
       <PillGroup<Tab>
-        value={tab}
+        value={activeTab}
         onChange={setTab}
         options={[
-          { value: "pnl", label: "P&L" },
-          { value: "budget", label: "Budget" },
-          { value: "vat", label: "VAT" },
-          { value: "cash", label: "Cash" },
+          { value: "pnl" as Tab, label: "P&L" },
+          ...(showBudget ? [{ value: "budget" as Tab, label: "Budget" }] : []),
+          { value: "vat" as Tab, label: "VAT" },
+          ...(showCash ? [{ value: "cash" as Tab, label: "Cash" }] : []),
         ]}
       />
 
