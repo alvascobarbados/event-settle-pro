@@ -60,11 +60,14 @@ function draftFrom(fields: ScanFields, vendors: Vendor[], cats: { id: string; pa
 export function ScanBillPanel({
   eventId,
   existing,
+  initialFiles,
   onDone,
 }: {
   eventId: string;
   /** Already-uploaded file to scan; when absent the panel starts with a file picker. */
   existing?: FileRecord;
+  /** Files handed in from a drop or an outside picker — the queue starts immediately. */
+  initialFiles?: File[];
   onDone: () => void;
 }) {
   const { db, addRoutedBill, addFile, addVendor, updateVendor, linkFileToLine, showToast, promoterId } = useSetlup();
