@@ -75,7 +75,9 @@ function Lobby() {
           )}
 
         </div>
+        </PullToRefresh>
       </PageScroll>
+
 
       <Sheet open={open} onClose={() => setOpen(false)} title="New event">
         <Field label="Event name">
