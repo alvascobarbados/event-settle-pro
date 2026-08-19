@@ -196,19 +196,6 @@ function RecordRow({
         <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <StatusChip status={status} />
           <Chip tone="neutral">due {fmtDateShort(record.dueDate)}</Chip>
-          {onEdit && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit();
-              }}
-              className="text-[11px] font-extrabold uppercase tracking-[0.06em]"
-              style={{ color: "var(--accent-c)" }}
-            >
-              Edit
-            </button>
-          )}
         </span>
       </span>
       <span className="shrink-0 text-right">
@@ -223,8 +210,21 @@ function RecordRow({
 
   if (!onClick) return <div className="dashed-row">{body}</div>;
   return (
-    <button type="button" onClick={onClick} className="dashed-row block w-full text-left active:bg-app">
-      {body}
-    </button>
+    <div className="dashed-row flex items-stretch">
+      <button type="button" onClick={onClick} className="min-w-0 flex-1 text-left active:bg-app">
+        {body}
+      </button>
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="shrink-0 self-center pr-4 text-[11px] font-extrabold uppercase tracking-[0.06em]"
+          style={{ color: "var(--accent-c)" }}
+        >
+          Edit
+        </button>
+      )}
+    </div>
   );
 }
+
