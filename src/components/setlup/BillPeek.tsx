@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { PdfPreview } from "@/components/setlup/PdfPreview";
 import { money } from "@/lib/setlup/format";
 import { useSetlup } from "@/lib/setlup/store";
 import type { FileRecord } from "@/lib/setlup/types";
@@ -7,7 +8,7 @@ import type { FileRecord } from "@/lib/setlup/types";
 export interface PeekTarget {
   label: string;
   detail?: string;
-  amount: number;
+  amount?: number;
   vat?: number;
   file: FileRecord;
 }
@@ -79,7 +80,7 @@ export function BillPeek({ target, onClose }: { target: PeekTarget | null; onClo
             <div className="text-[14.5px] font-extrabold leading-snug text-ink">{target?.label}</div>
             {target?.detail && <div className="mt-0.5 text-[11.5px] text-mute">{target.detail}</div>}
             <div className="num mt-2 text-[13px] font-bold text-ink">
-              {target ? money(target.amount) : ""}
+              {target?.amount !== undefined ? money(target.amount) : ""}
               {target?.vat !== undefined && (
                 <span className="ml-2 text-[11.5px] font-semibold text-vat">
                   VAT {target.vat === 0 ? "—" : money(target.vat)}
@@ -108,11 +109,7 @@ export function BillPeek({ target, onClose }: { target: PeekTarget | null; onClo
             <img src={url} alt={target.file.name} className="w-full rounded-[12px]" />
           ) : (
             <>
-              <iframe
-                src={url}
-                title={target.file.name}
-                className="h-[62vh] w-full rounded-[12px] bg-card"
-              />
+              <PdfPreview url={url} cacheKey={target.file.storagePath} />
               <a
                 href={url}
                 target="_blank"

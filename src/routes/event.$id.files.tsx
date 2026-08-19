@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ScrollTop } from "@/components/setlup/Shell";
+import { BillPeek } from "@/components/setlup/BillPeek";
 import { Card, Chip, EmptyState, PillGroup, SectionLabel } from "@/components/setlup/ui";
 import { lineName } from "@/lib/setlup/compute";
 import { fmtDate, money } from "@/lib/setlup/format";
@@ -27,6 +28,8 @@ function Files() {
   const { db, getEvent } = useSetlup();
   const event = getEvent(id);
   const [filter, setFilter] = useState<Filter>("all");
+  const [peekId, setPeekId] = useState<string | null>(null);
+  const peekFile = peekId ? db.files.find((f) => f.id === peekId) : undefined;
   if (!event) return null;
 
   const all = db.files.filter((f) => f.eventId === event.id);
@@ -57,31 +60,31 @@ function Files() {
         {files.length === 0 ? (
           <EmptyState title="No files here" body="Attach an invoice or receipt with the + button and link it to a P&L line." />
         ) : (
-          files.map((f) => <FileRow key={f.id} file={f} />)
+          files.map((f) => <FileRow key={f.id} file={f} onOpen={() => setPeekId(f.id)} />)
         )}
       </Card>
+
+      <BillPeek
+        target={
+          peekFile
+            ? {
+                label: peekFile.name,
+                detail: [fmtDate(peekFile.date), lineName(db, peekFile.lineId) ?? "Unlinked"].join(" · "),
+                amount: peekFile.amount,
+                file: peekFile,
+              }
+            : null
+        }
+        onClose={() => setPeekId(null)}
+      />
     </div>
   );
 }
 
-function FileRow({ file: f }: { file: FileRecord }) {
+function FileRow({ file: f, onOpen }: { file: FileRecord; onOpen: () => void }) {
   const { db, showToast, userId, setFileStoragePath } = useSetlup();
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  async function open() {
-    if (!f.storagePath || busy) return;
-    setBusy(true);
-    const { data, error } = await supabase.storage
-      .from("setlup-files")
-      .createSignedUrl(f.storagePath, 60 * 10);
-    setBusy(false);
-    if (error || !data) {
-      showToast("Could not open file");
-      return;
-    }
-    window.open(data.signedUrl, "_blank", "noopener");
-  }
 
   async function upload(file: File) {
     if (!userId) return;
@@ -116,7 +119,7 @@ function FileRow({ file: f }: { file: FileRecord }) {
         <span className="block text-[14px] font-semibold text-ink">{f.name}</span>
         <span className="block text-[11.5px] text-mute">
           {fmtDate(f.date)}
-          {f.storagePath ? (busy ? " · opening…" : " · tap to view") : " · No PDF attached"}
+          {f.storagePath ? " · tap to view" : " · No PDF attached"}
         </span>
         <span className="mt-1.5 block">
           <Chip tone={f.lineId ? "green" : "neutral"}>{lineName(db, f.lineId) ?? "Unlinked"}</Chip>
@@ -158,7 +161,7 @@ function FileRow({ file: f }: { file: FileRecord }) {
   return (
     <button
       type="button"
-      onClick={open}
+      onClick={onOpen}
       className="dashed-row flex w-full items-start gap-3 px-4 py-3.5 text-left active:opacity-70"
     >
       {body}
