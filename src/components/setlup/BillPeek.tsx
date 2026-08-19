@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { PdfPreview } from "@/components/setlup/PdfPreview";
 import { money } from "@/lib/setlup/format";
 import { useSetlup } from "@/lib/setlup/store";
 import type { FileRecord } from "@/lib/setlup/types";
@@ -108,11 +109,7 @@ export function BillPeek({ target, onClose }: { target: PeekTarget | null; onClo
             <img src={url} alt={target.file.name} className="w-full rounded-[12px]" />
           ) : (
             <>
-              <iframe
-                src={url}
-                title={target.file.name}
-                className="h-[62vh] w-full rounded-[12px] bg-card"
-              />
+              <PdfPreview url={url} cacheKey={target.file.storagePath} />
               <a
                 href={url}
                 target="_blank"
