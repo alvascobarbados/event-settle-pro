@@ -10,7 +10,7 @@ import {
   toCollect,
   toPay,
 } from "@/lib/setlup/compute";
-import { fmtDate, money, pct, perHead } from "@/lib/setlup/format";
+import { fmtDate, fmtEventNumber, money, pct, perHead } from "@/lib/setlup/format";
 import { useSetlup } from "@/lib/setlup/store";
 
 export const Route = createFileRoute("/event/$id/")({
