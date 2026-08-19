@@ -19,16 +19,31 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
-  const { db, updateSettings, showToast, userEmail, signOut, resetToSeed, importUv2024, userId } = useSetlup();
+  const {
+    db,
+    updateSettings,
+    showToast,
+    userEmail,
+    signOut,
+    resetToSeed,
+    importUv2024,
+    userId,
+    promoterCode,
+    promoterUsername,
+    setUsername,
+  } = useSetlup();
   const [business, setBusiness] = useState(db.settings.business);
   const [currency, setCurrency] = useState(db.settings.currency);
+  const [username, setUsernameInput] = useState(promoterUsername ?? "");
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [manifestReady, setManifestReady] = useState(false);
   const [importing, setImporting] = useState<string | null>(null);
 
+  const isVerifiedSeedPromoter = promoterCode === "1949AL";
   const uv24Files = userId ? db.files.filter((f) => f.eventId === uv2024EventId(userId)).length : 0;
-  const canImport = manifestReady && uv24Files < 60;
+  const canImport = isVerifiedSeedPromoter && manifestReady && uv24Files < 60;
+
 
   useEffect(() => {
     let active = true;
