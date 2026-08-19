@@ -116,6 +116,55 @@ export function pnlOf(db: Db, event: EventRecord): Pnl {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* VAT report — scope only; P&L amounts are never affected             */
+/* ------------------------------------------------------------------ */
+
+export interface VatDetailRow {
+  line: Line;
+  amount: number;
+  vat: number;
+  detail: string;
+  excluded: boolean;
+}
+
+export interface VatReport {
+  outputRows: VatDetailRow[];
+  inputRows: VatDetailRow[];
+  output: number;
+  input: number;
+  net: number;
+  excludedCount: number;
+}
+
+const leafRows = (sec: SectionResult): PnlRow[] =>
+  sec.rows.flatMap((r) => (r.children.length > 0 ? r.children : [r]));
+
+const toDetailRow = (r: PnlRow): VatDetailRow => ({
+  line: r.line,
+  amount: r.amount,
+  vat: r.vat,
+  detail: [r.line.detail, r.line.ref ? `inv ${r.line.ref}` : null].filter(Boolean).join(" · "),
+  excluded: !!r.line.vatExcluded,
+});
+
+export function vatReportOf(db: Db, event: EventRecord, pnl: Pnl = pnlOf(db, event)): VatReport {
+  const outputRows = leafRows(pnl.revenue).map(toDetailRow);
+  const inputRows = leafRows(pnl.expenses).map(toDetailRow).filter((r) => r.vat !== 0);
+  const excludedVat = (rows: VatDetailRow[]) =>
+    round2(rows.filter((r) => r.excluded).reduce((s, r) => s + r.vat, 0));
+  const output = round2(pnl.outputVat - excludedVat(outputRows));
+  const input = round2(pnl.inputVat - excludedVat(inputRows));
+  return {
+    outputRows,
+    inputRows,
+    output,
+    input,
+    net: round2(output - input),
+    excludedCount: [...outputRows, ...inputRows].filter((r) => r.excluded).length,
+  };
+}
+
 export function hasChildren(pnl: Pnl): boolean {
   return [pnl.revenue, pnl.expenses].some((s) => s.rows.some((r) => r.children.length > 0));
 }
@@ -174,9 +223,10 @@ export function cashOf(db: Db, event: EventRecord) {
   const pnl = pnlOf(db, event);
   const remainingIn = toCollect(db, event);
   const remainingOut = toPay(db, event);
-  const vatOutstanding = event.stage === "closed" ? 0 : pnl.netVat;
+  const netVat = vatReportOf(db, event, pnl).net;
+  const vatOutstanding = event.stage === "closed" ? 0 : netVat;
   const fullySettled = round2(position + remainingIn - remainingOut - vatOutstanding);
-  return { collected, paid, position, remainingIn, remainingOut, netVat: pnl.netVat, fullySettled };
+  return { collected, paid, position, remainingIn, remainingOut, netVat, fullySettled };
 }
 
 export function budgetReportOf(db: Db, event: EventRecord) {

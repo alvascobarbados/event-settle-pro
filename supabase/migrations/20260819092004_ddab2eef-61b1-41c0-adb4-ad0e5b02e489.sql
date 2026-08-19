@@ -1,0 +1,1 @@
+ALTER TABLE public.lines ADD COLUMN IF NOT EXISTS vat_excluded boolean NOT NULL DEFAULT false;

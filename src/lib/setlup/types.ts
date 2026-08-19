@@ -68,6 +68,8 @@ export interface Line {
   /** Invoice / reference number from the source document. */
   ref?: string;
   parentId?: string;
+  /** Untapped in the VAT report: excluded from output/input VAT only, never from the P&L. */
+  vatExcluded?: boolean;
   /** Routed taxonomy node — a category, or a subcategory when one was chosen. */
   categoryId?: string;
 }
@@ -90,6 +92,8 @@ export interface Ledgerable {
   payments: Payment[];
   /** false when the line already carries this amount in its seeded actual. */
   countInActual?: boolean;
+  /** Untapped in the VAT report: excluded from output/input VAT only, never from the P&L. */
+  vatExcluded?: boolean;
   /** Routed taxonomy node for reporting. */
   categoryId?: string;
 }

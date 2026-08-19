@@ -1,0 +1,1 @@
+UPDATE public.lines SET vat_excluded = false WHERE vat_excluded;
