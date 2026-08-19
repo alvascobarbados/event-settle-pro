@@ -172,10 +172,12 @@ export type Database = {
         Row: {
           actual_amount: number
           budget_amount: number
+          detail: string | null
           event_id: string
           id: string
           name: string
           parent_id: string | null
+          ref: string | null
           section: string
           sort_order: number
           user_id: string
@@ -185,10 +187,12 @@ export type Database = {
         Insert: {
           actual_amount?: number
           budget_amount?: number
+          detail?: string | null
           event_id: string
           id: string
           name: string
           parent_id?: string | null
+          ref?: string | null
           section: string
           sort_order?: number
           user_id: string
@@ -198,10 +202,12 @@ export type Database = {
         Update: {
           actual_amount?: number
           budget_amount?: number
+          detail?: string | null
           event_id?: string
           id?: string
           name?: string
           parent_id?: string | null
+          ref?: string | null
           section?: string
           sort_order?: number
           user_id?: string

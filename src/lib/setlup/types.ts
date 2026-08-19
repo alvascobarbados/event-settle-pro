@@ -50,6 +50,10 @@ export interface Line {
   vatExempt?: boolean;
   /** Real VAT from the source bill, displayed and summed verbatim; overrides the 17.5% formula. */
   vatOverride?: number;
+  /** Secondary line under the name: what the bill was for. */
+  detail?: string;
+  /** Invoice / reference number from the source document. */
+  ref?: string;
   parentId?: string;
 }
 
@@ -84,7 +88,7 @@ export interface FileRecord {
   date: string;
   lineId?: string;
   amount?: number;
-  /** Path in the private files bucket; absent on seeded rows. */
+  /** Path in the private storage bucket. */
   storagePath?: string;
 }
 
