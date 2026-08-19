@@ -283,6 +283,7 @@ export type Database = {
           ref: string | null
           section: string
           sort_order: number
+          vat_excluded: boolean
           vat_exempt: boolean | null
           vat_override: number | null
         }
@@ -298,6 +299,7 @@ export type Database = {
           ref?: string | null
           section: string
           sort_order?: number
+          vat_excluded?: boolean
           vat_exempt?: boolean | null
           vat_override?: number | null
         }
@@ -313,6 +315,7 @@ export type Database = {
           ref?: string | null
           section?: string
           sort_order?: number
+          vat_excluded?: boolean
           vat_exempt?: boolean | null
           vat_override?: number | null
         }
