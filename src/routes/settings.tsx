@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppBar, PageScroll } from "@/components/setlup/Shell";
 import { Field, TextInput } from "@/components/setlup/Sheets";
 import { Card, FinePrint, PrimaryButton, SectionLabel } from "@/components/setlup/ui";
 import { useSetlup } from "@/lib/setlup/store";
+import { formatSample, loadSamples } from "@/lib/setlup/perf";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -36,6 +37,10 @@ function SettingsPage() {
   const [resetting, setResetting] = useState(false);
 
   const isVerifiedSeedPromoter = promoterCode === "1949AL";
+  const [samples, setSamples] = useState<ReturnType<typeof loadSamples>>([]);
+  useEffect(() => {
+    if (isVerifiedSeedPromoter) setSamples(loadSamples());
+  }, [isVerifiedSeedPromoter]);
 
 
   return (
@@ -196,6 +201,23 @@ function SettingsPage() {
                   </button>
                 </div>
               </div>
+            </>
+          )}
+
+          {isVerifiedSeedPromoter && samples.length > 0 && (
+            <>
+              <div className="mt-6">
+                <SectionLabel>Diagnostics</SectionLabel>
+              </div>
+              <Card className="mt-2 overflow-hidden">
+                {[...samples].reverse().map((s, i) => (
+                  <div key={s.at} className="dashed-row px-4 py-3">
+                    <div className="num text-[11.5px] leading-snug text-ink">{formatSample(s)}</div>
+                    {i === 0 && <div className="mt-0.5 text-[10.5px] uppercase tracking-[0.08em] text-mute">This load</div>}
+                  </div>
+                ))}
+              </Card>
+              <FinePrint>Last five loads on this device. Cold = first open in the tab; warm = reload.</FinePrint>
             </>
           )}
 
