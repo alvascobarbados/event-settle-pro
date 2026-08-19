@@ -141,8 +141,14 @@ function EventHome() {
                   <span className="shrink-0 text-right">
                     <span className="num block text-[14px] font-bold text-ink">{money(a.amount)}</span>
                     <span className="mt-0.5 block">
-                      <Chip tone={a.status === "overdue" ? "red" : "amber"}>
-                        {a.status === "overdue" ? `${a.days}d overdue` : `in ${a.days}d`}
+                      <Chip tone={a.status === "overdue" || a.days < 0 ? "red" : "amber"}>
+                        {a.status === "overdue"
+                          ? `${a.days}d overdue`
+                          : a.days < 0
+                            ? `${-a.days}d late`
+                            : a.days === 0
+                              ? "due today"
+                              : `in ${a.days}d`}
                       </Chip>
                     </span>
                   </span>
