@@ -76,7 +76,8 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [loading, setLoading] = useState(false);
+  /* true until we know there is no session, or until the signed-in user's data has loaded */
+  const [loading, setLoading] = useState(true);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
