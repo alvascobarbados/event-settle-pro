@@ -1,76 +1,150 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { EVENTS } from "@/lib/setl-data";
-import { netProfit } from "@/lib/setl-compute";
-import { fmt, fmtDate } from "@/lib/setl-format";
-import { AppShell } from "@/components/setl/AppShell";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { AppBar, PageScroll, accentVars } from "@/components/setlup/Shell";
+import { Field, Sheet, TextInput } from "@/components/setlup/Sheets";
+import { PrimaryButton, SectionLabel, StageBadge } from "@/components/setlup/ui";
+import { pnlOf, toCollect, toPay } from "@/lib/setlup/compute";
+import { fmtDate, money, todayIso } from "@/lib/setlup/format";
+import { useSetlup } from "@/lib/setlup/store";
+import type { EventRecord } from "@/lib/setlup/types";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Event Set" },
-      { name: "description", content: "Manage and reconcile your event performance, bills and VAT." },
-      { property: "og:title", content: "Event Set" },
-      { property: "og:description", content: "Manage and reconcile your event performance, bills and VAT." },
+      { title: "Events — SETLUP" },
+      { name: "description", content: "Every event you're budgeting, reconciling or have closed, with profit and outstanding money at a glance." },
+      { property: "og:title", content: "Events — SETLUP" },
+      { property: "og:description", content: "Every event you're budgeting, reconciling or have closed, with profit and outstanding money at a glance." },
     ],
   }),
-  component: EventsIndex,
+  component: Lobby,
 });
 
-function EventsIndex() {
+function Lobby() {
+  const { db, addEvent, showToast } = useSetlup();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [date, setDate] = useState(todayIso());
+  const [venue, setVenue] = useState("");
+  const [capacity, setCapacity] = useState("");
+
   return (
-    <AppShell>
-      <div className="min-h-screen bg-background">
-        <div className="mx-auto w-full max-w-[680px] px-5 pt-6 pb-24">
-          <h1 className="text-[30px] font-extrabold tracking-tight text-ink">Events</h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            One page per event. Bills are the atom; the sheet is a computed view.
+    <>
+      <AppBar />
+      <PageScroll>
+        <div className="px-4 pb-10 pt-5">
+          <h1 className="wide-116 text-[26px] font-black uppercase leading-none text-ink">Events</h1>
+          <p className="mt-1.5 text-[12.5px] text-mute">
+            {db.settings.business} · {db.settings.currency} · VAT {db.settings.vatRate}%
           </p>
 
-          <ul className="mt-8 divide-y divide-hairline border-y border-hairline">
-            {EVENTS.map((e) => {
-              const np = netProfit(e).amount;
-              const mid = e.state === "mid-settlement";
-              return (
-                <li key={e.id}>
-                  <Link
-                    to="/event/$id"
-                    params={{ id: e.id }}
-                    className="grid grid-cols-[1fr_auto] items-baseline gap-4 py-5 transition-colors hover:bg-panel active:bg-panel"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 text-[17px] font-semibold text-ink">
-                        {mid && (
-                          <span
-                            aria-hidden
-                            className="inline-block h-[7px] w-[7px] rounded-full"
-                            style={{ backgroundColor: "var(--magenta)" }}
-                          />
-                        )}
-                        <span>{e.name}</span>
-                      </div>
-                      <div className="mt-1 text-[12px] text-muted-foreground">
-                        {fmtDate(e.date)} · headcount {e.headcount.toLocaleString()}
-                        {mid ? " · mid-settlement" : " · settled"}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="num text-[17px] font-semibold text-ink">{fmt(np)}</div>
-                      <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        profit after tax
-                      </div>
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="mt-5 space-y-3">
+            {db.events.map((e) => (
+              <EventCard key={e.id} event={e} />
+            ))}
 
-          <p className="mt-8 text-[12px] italic text-muted-foreground">
-            Tap an event to open its Performance sheet.
-          </p>
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-[16px] py-5 text-[13px] font-extrabold uppercase text-mute"
+              style={{ border: "1.5px dashed var(--dash)", letterSpacing: "0.09em" }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+              </svg>
+              New event
+            </button>
+          </div>
         </div>
-      </div>
-    </AppShell>
+      </PageScroll>
+
+      <Sheet open={open} onClose={() => setOpen(false)} title="New event">
+        <Field label="Event name">
+          <TextInput value={name} onChange={(ev) => setName(ev.target.value)} placeholder="e.g. UV 2027" />
+        </Field>
+        <Field label="Date">
+          <TextInput type="date" value={date} onChange={(ev) => setDate(ev.target.value)} />
+        </Field>
+        <Field label="Venue">
+          <TextInput value={venue} onChange={(ev) => setVenue(ev.target.value)} placeholder="Where it happens" />
+        </Field>
+        <Field label="Capacity">
+          <TextInput className="num" type="number" value={capacity} onChange={(ev) => setCapacity(ev.target.value)} />
+        </Field>
+        <div className="mt-5">
+          <PrimaryButton
+            onClick={() => {
+              if (!name.trim()) return;
+              const id = addEvent({
+                name: name.trim(),
+                date,
+                venue: venue.trim() || "TBC",
+                capacity: Number(capacity) || undefined,
+              });
+              setOpen(false);
+              setName("");
+              setVenue("");
+              setCapacity("");
+              showToast("Event created");
+              navigate({ to: "/event/$id", params: { id } });
+            }}
+          >
+            Create event
+          </PrimaryButton>
+        </div>
+      </Sheet>
+    </>
   );
 }
 
+function EventCard({ event }: { event: EventRecord }) {
+  const { db } = useSetlup();
+  const pnl = pnlOf(db, event);
+  const collect = toCollect(db, event);
+  const pay = toPay(db, event);
+
+  return (
+    <Link
+      to="/event/$id"
+      params={{ id: event.id }}
+      className="block overflow-hidden rounded-[16px] bg-card transition-transform duration-150 active:scale-[0.99]"
+      style={{ border: "1.5px solid var(--hairline)", ...accentVars(event.accent) }}
+    >
+      <div className="h-[5px] w-full" style={{ backgroundColor: "var(--accent-c)" }} />
+      <div className="px-4 pb-4 pt-3.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="wide-116 truncate text-[19px] font-black uppercase leading-tight text-ink">
+              {event.name}
+            </div>
+            <div className="mt-1 text-[12px] text-mute">
+              {fmtDate(event.date)} · {event.venue}
+            </div>
+          </div>
+          <StageBadge stage={event.stage} />
+        </div>
+
+        <div className="mt-3.5 flex items-end justify-between gap-3">
+          <div>
+            <SectionLabel>{pnl.budgeted ? "Budgeted profit" : "Profit before tax"}</SectionLabel>
+            <div
+              className="num mt-1 text-[24px] font-black leading-none"
+              style={{ color: pnl.profitBeforeTax < 0 ? "var(--red)" : "var(--accent-deep-c)" }}
+            >
+              {money(pnl.profitBeforeTax)}
+            </div>
+          </div>
+          <div className="text-right text-[11.5px] leading-relaxed text-mute">
+            <div>
+              To collect <span className="num font-bold text-ink">{money(collect)}</span>
+            </div>
+            <div>
+              To pay <span className="num font-bold text-ink">{money(pay)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
