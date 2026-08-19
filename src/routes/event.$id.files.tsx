@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ScrollTop } from "@/components/setlup/Shell";
+import { BillPeek } from "@/components/setlup/BillPeek";
 import { Card, Chip, EmptyState, PillGroup, SectionLabel } from "@/components/setlup/ui";
 import { lineName } from "@/lib/setlup/compute";
 import { fmtDate, money } from "@/lib/setlup/format";
@@ -28,6 +29,7 @@ function Files() {
   const event = getEvent(id);
   const [filter, setFilter] = useState<Filter>("all");
   const [peekId, setPeekId] = useState<string | null>(null);
+  const peekFile = peekId ? db.files.find((f) => f.id === peekId) : undefined;
   if (!event) return null;
 
   const all = db.files.filter((f) => f.eventId === event.id);
