@@ -63,6 +63,8 @@ interface StoreValue {
   userEmail: string | null;
   authReady: boolean;
   loading: boolean;
+  resetToSeed: () => Promise<void>;
+  setFileStoragePath: (fileId: string, storagePath: string, type?: FileRecord["type"]) => void;
   signOut: () => Promise<void>;
 }
 
