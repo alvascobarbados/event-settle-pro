@@ -10,12 +10,22 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VendorsRouteImport } from './routes/vendors'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EventIdRouteImport } from './routes/event.$id'
+import { Route as EventIdIndexRouteImport } from './routes/event.$id.index'
+import { Route as EventIdReportsRouteImport } from './routes/event.$id.reports'
+import { Route as EventIdFinanceRouteImport } from './routes/event.$id.finance'
+import { Route as EventIdFilesRouteImport } from './routes/event.$id.files'
 
 const VendorsRoute = VendorsRouteImport.update({
   id: '/vendors',
   path: '/vendors',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -28,35 +38,94 @@ const EventIdRoute = EventIdRouteImport.update({
   path: '/event/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EventIdIndexRoute = EventIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => EventIdRoute,
+} as any)
+const EventIdReportsRoute = EventIdReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => EventIdRoute,
+} as any)
+const EventIdFinanceRoute = EventIdFinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => EventIdRoute,
+} as any)
+const EventIdFilesRoute = EventIdFilesRouteImport.update({
+  id: '/files',
+  path: '/files',
+  getParentRoute: () => EventIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRoute
   '/vendors': typeof VendorsRoute
-  '/event/$id': typeof EventIdRoute
+  '/event/$id': typeof EventIdRouteWithChildren
+  '/event/$id/files': typeof EventIdFilesRoute
+  '/event/$id/finance': typeof EventIdFinanceRoute
+  '/event/$id/reports': typeof EventIdReportsRoute
+  '/event/$id/': typeof EventIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRoute
   '/vendors': typeof VendorsRoute
-  '/event/$id': typeof EventIdRoute
+  '/event/$id/files': typeof EventIdFilesRoute
+  '/event/$id/finance': typeof EventIdFinanceRoute
+  '/event/$id/reports': typeof EventIdReportsRoute
+  '/event/$id': typeof EventIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRoute
   '/vendors': typeof VendorsRoute
-  '/event/$id': typeof EventIdRoute
+  '/event/$id': typeof EventIdRouteWithChildren
+  '/event/$id/files': typeof EventIdFilesRoute
+  '/event/$id/finance': typeof EventIdFinanceRoute
+  '/event/$id/reports': typeof EventIdReportsRoute
+  '/event/$id/': typeof EventIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/vendors' | '/event/$id'
+  fullPaths:
+    | '/'
+    | '/settings'
+    | '/vendors'
+    | '/event/$id'
+    | '/event/$id/files'
+    | '/event/$id/finance'
+    | '/event/$id/reports'
+    | '/event/$id/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/vendors' | '/event/$id'
-  id: '__root__' | '/' | '/vendors' | '/event/$id'
+  to:
+    | '/'
+    | '/settings'
+    | '/vendors'
+    | '/event/$id/files'
+    | '/event/$id/finance'
+    | '/event/$id/reports'
+    | '/event/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/settings'
+    | '/vendors'
+    | '/event/$id'
+    | '/event/$id/files'
+    | '/event/$id/finance'
+    | '/event/$id/reports'
+    | '/event/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SettingsRoute: typeof SettingsRoute
   VendorsRoute: typeof VendorsRoute
-  EventIdRoute: typeof EventIdRoute
+  EventIdRoute: typeof EventIdRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -66,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/vendors'
       fullPath: '/vendors'
       preLoaderRoute: typeof VendorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -82,13 +158,59 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EventIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/event/$id/': {
+      id: '/event/$id/'
+      path: '/'
+      fullPath: '/event/$id/'
+      preLoaderRoute: typeof EventIdIndexRouteImport
+      parentRoute: typeof EventIdRoute
+    }
+    '/event/$id/reports': {
+      id: '/event/$id/reports'
+      path: '/reports'
+      fullPath: '/event/$id/reports'
+      preLoaderRoute: typeof EventIdReportsRouteImport
+      parentRoute: typeof EventIdRoute
+    }
+    '/event/$id/finance': {
+      id: '/event/$id/finance'
+      path: '/finance'
+      fullPath: '/event/$id/finance'
+      preLoaderRoute: typeof EventIdFinanceRouteImport
+      parentRoute: typeof EventIdRoute
+    }
+    '/event/$id/files': {
+      id: '/event/$id/files'
+      path: '/files'
+      fullPath: '/event/$id/files'
+      preLoaderRoute: typeof EventIdFilesRouteImport
+      parentRoute: typeof EventIdRoute
+    }
   }
 }
 
+interface EventIdRouteChildren {
+  EventIdFilesRoute: typeof EventIdFilesRoute
+  EventIdFinanceRoute: typeof EventIdFinanceRoute
+  EventIdReportsRoute: typeof EventIdReportsRoute
+  EventIdIndexRoute: typeof EventIdIndexRoute
+}
+
+const EventIdRouteChildren: EventIdRouteChildren = {
+  EventIdFilesRoute: EventIdFilesRoute,
+  EventIdFinanceRoute: EventIdFinanceRoute,
+  EventIdReportsRoute: EventIdReportsRoute,
+  EventIdIndexRoute: EventIdIndexRoute,
+}
+
+const EventIdRouteWithChildren =
+  EventIdRoute._addFileChildren(EventIdRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SettingsRoute: SettingsRoute,
   VendorsRoute: VendorsRoute,
-  EventIdRoute: EventIdRoute,
+  EventIdRoute: EventIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
