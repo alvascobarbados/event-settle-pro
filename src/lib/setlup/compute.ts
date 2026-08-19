@@ -57,9 +57,7 @@ export interface SectionResult {
 export interface Pnl {
   budgeted: boolean;
   revenue: SectionResult;
-  cos: SectionResult;
   expenses: SectionResult;
-  grossProfit: number;
   profitBeforeTax: number;
   outputVat: number;
   inputVat: number;
@@ -103,19 +101,14 @@ function section(db: Db, event: EventRecord, sec: Section, budgeted: boolean): S
 export function pnlOf(db: Db, event: EventRecord): Pnl {
   const budgeted = event.stage === "planning";
   const revenue = section(db, event, "revenue", budgeted);
-  const cos = section(db, event, "cos", budgeted);
   const expenses = section(db, event, "expenses", budgeted);
-  const grossProfit = Math.round((revenue.amount - cos.amount) * 100) / 100;
-  const profitBeforeTax = Math.round((grossProfit - expenses.amount) * 100) / 100;
+  const profitBeforeTax = Math.round((revenue.amount - expenses.amount) * 100) / 100;
   const outputVat = revenue.vat;
-  const inputVat =
-    event.inputVatOverride ?? Math.round((cos.vat + expenses.vat) * 100) / 100;
+  const inputVat = event.inputVatOverride ?? Math.round(expenses.vat * 100) / 100;
   return {
     budgeted,
     revenue,
-    cos,
     expenses,
-    grossProfit,
     profitBeforeTax,
     outputVat,
     inputVat,
@@ -124,7 +117,7 @@ export function pnlOf(db: Db, event: EventRecord): Pnl {
 }
 
 export function hasChildren(pnl: Pnl): boolean {
-  return [pnl.revenue, pnl.cos, pnl.expenses].some((s) => s.rows.some((r) => r.children.length > 0));
+  return [pnl.revenue, pnl.expenses].some((s) => s.rows.some((r) => r.children.length > 0));
 }
 
 /* ------------------------------------------------------------------ */
@@ -188,14 +181,11 @@ export function cashOf(db: Db, event: EventRecord) {
 
 export function budgetReportOf(db: Db, event: EventRecord) {
   const pnl = pnlOf(db, event);
-  const b = event.budgetBaseline ?? { revenue: 0, cos: 0, expenses: 0 };
-  const budgetGross = round2(b.revenue - b.cos);
-  const budgetProfit = round2(budgetGross - b.expenses);
+  const b = event.budgetBaseline ?? { revenue: 0, expenses: 0 };
+  const budgetProfit = round2(b.revenue - b.expenses);
   return {
     rows: [
       { name: "Revenue", budget: b.revenue, actual: pnl.revenue.amount, favourableWhenOver: true },
-      { name: "Cost of sales", budget: b.cos, actual: pnl.cos.amount, favourableWhenOver: false },
-      { name: "Gross profit", budget: budgetGross, actual: pnl.grossProfit, favourableWhenOver: true },
       { name: "Expenses", budget: b.expenses, actual: pnl.expenses.amount, favourableWhenOver: false },
     ],
     budgetProfit,

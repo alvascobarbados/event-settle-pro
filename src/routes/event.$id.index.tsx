@@ -65,9 +65,8 @@ function EventHome() {
           }`}
           hero
         />
-        <div className="grid grid-cols-3 divide-x" style={{ borderColor: "var(--hairline)" }}>
+        <div className="grid grid-cols-2 divide-x" style={{ borderColor: "var(--hairline)" }}>
           <Cell label="Revenue" value={pnl.revenue.amount} />
-          <Cell label="Cost of sales" value={pnl.cos.amount} />
           <Cell label="Expenses" value={pnl.expenses.amount} />
         </div>
       </Card>
