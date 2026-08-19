@@ -41,6 +41,10 @@ function Reports() {
   const budget = budgetReportOf(db, event);
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }));
 
+  const showBudget = !!event.budgetBaseline && event.stage === "reconciling";
+  const showCash = event.stage === "reconciling";
+  const activeTab: Tab = (tab === "budget" && !showBudget) || (tab === "cash" && !showCash) ? "pnl" : tab;
+
   const renderSection = (title: string, sec: SectionResult, totalLabel: string) => (
     <>
       <SectionHeader title={title} />
