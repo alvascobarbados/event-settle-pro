@@ -18,9 +18,11 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
-  const { db, updateSettings, showToast, userEmail, signOut } = useSetlup();
+  const { db, updateSettings, showToast, userEmail, signOut, resetToSeed } = useSetlup();
   const [business, setBusiness] = useState(db.settings.business);
   const [currency, setCurrency] = useState(db.settings.currency);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   return (
     <>
