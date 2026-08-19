@@ -34,6 +34,8 @@ function Files() {
   const [peekId, setPeekId] = useState<string | null>(null);
   const [routeFileId, setRouteFileId] = useState<string | null>(null);
   const [scanFileId, setScanFileId] = useState<string | null>(null);
+  const [dropped, setDropped] = useState<File[]>([]);
+  const [dragging, setDragging] = useState(false);
   const peekFile = peekId ? db.files.find((f) => f.id === peekId) : undefined;
   if (!event) return null;
 
@@ -61,21 +63,49 @@ function Files() {
         </SectionLabel>
       </div>
 
-      <Card className="mt-2 overflow-hidden">
-        {files.length === 0 ? (
-          <EmptyState title="No files here" body="Attach an invoice or receipt with the + button and link it to a P&L line." />
-        ) : (
-          files.map((f) => (
-            <FileRow
-              key={f.id}
-              file={f}
-              onOpen={() => setPeekId(f.id)}
-              onRoute={() => setRouteFileId(f.id)}
-              onScan={() => setScanFileId(f.id)}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          const list = Array.from(e.dataTransfer.files ?? []);
+          if (list.length) setDropped(list);
+        }}
+      >
+        <Card
+          className="mt-2 overflow-hidden transition-shadow"
+          style={dragging ? { outline: "2px dashed var(--accent-c)", outlineOffset: 2 } : undefined}
+        >
+          {files.length === 0 ? (
+            <EmptyState
+              title="No files here"
+              body="Attach an invoice or receipt with the + button, or drop a PDF here on desktop."
             />
-          ))
-        )}
-      </Card>
+          ) : (
+            files.map((f) => (
+              <FileRow
+                key={f.id}
+                file={f}
+                onOpen={() => setPeekId(f.id)}
+                onRoute={() => setRouteFileId(f.id)}
+                onScan={() => setScanFileId(f.id)}
+              />
+            ))
+          )}
+        </Card>
+      </div>
+
+      <ScanBillFilesSheet
+        eventId={event.id}
+        files={dropped}
+        open={dropped.length > 0}
+        onClose={() => setDropped([])}
+      />
+
 
       <FileRouteSheet fileId={routeFileId} onClose={() => setRouteFileId(null)} />
 
