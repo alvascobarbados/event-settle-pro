@@ -119,7 +119,7 @@ function FileRow({ file: f, onOpen }: { file: FileRecord; onOpen: () => void }) 
         <span className="block text-[14px] font-semibold text-ink">{f.name}</span>
         <span className="block text-[11.5px] text-mute">
           {fmtDate(f.date)}
-          {f.storagePath ? (busy ? " · opening…" : " · tap to view") : " · No PDF attached"}
+          {f.storagePath ? " · tap to view" : " · No PDF attached"}
         </span>
         <span className="mt-1.5 block">
           <Chip tone={f.lineId ? "green" : "neutral"}>{lineName(db, f.lineId) ?? "Unlinked"}</Chip>
@@ -161,7 +161,7 @@ function FileRow({ file: f, onOpen }: { file: FileRecord; onOpen: () => void }) 
   return (
     <button
       type="button"
-      onClick={open}
+      onClick={onOpen}
       className="dashed-row flex w-full items-start gap-3 px-4 py-3.5 text-left active:opacity-70"
     >
       {body}
