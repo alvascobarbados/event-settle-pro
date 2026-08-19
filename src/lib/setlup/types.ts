@@ -1,5 +1,5 @@
 export type Stage = "planning" | "reconciling" | "closed";
-export type Section = "revenue" | "cos" | "expenses";
+export type Section = "revenue" | "expenses";
 
 export interface Accent {
   accent: string;
@@ -28,7 +28,7 @@ export interface EventRecord {
   lockedAt?: string;
   /** Reference "today" used for due-date maths on seeded events. */
   asOf: string;
-  budgetBaseline?: { revenue: number; cos: number; expenses: number };
+  budgetBaseline?: { revenue: number; expenses: number };
   /** Historical cash not itemised in the activity feed. */
   cashBaseline?: { collected: number; paid: number };
   vatExported?: boolean;

@@ -57,9 +57,7 @@ export interface SectionResult {
 export interface Pnl {
   budgeted: boolean;
   revenue: SectionResult;
-  cos: SectionResult;
   expenses: SectionResult;
-  grossProfit: number;
   profitBeforeTax: number;
   outputVat: number;
   inputVat: number;
