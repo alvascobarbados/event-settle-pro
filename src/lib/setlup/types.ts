@@ -31,10 +31,10 @@ export interface EventRecord {
   budgetBaseline?: { revenue: number; cos: number; expenses: number };
   /** Historical cash not itemised in the activity feed. */
   cashBaseline?: { collected: number; paid: number };
-  /** Real bill-level input VAT, used until bills are itemised in the app. */
-  inputVatOverride?: number;
   vatExported?: boolean;
   vatFiledDate?: string;
+  /** Real input VAT from bill-level source data; overrides computed line VAT until bills are itemised. */
+  inputVatOverride?: number;
   planningRows?: { name: string; meta: string; state: "done" | "progress" | "open" }[];
 }
 
@@ -48,6 +48,8 @@ export interface Line {
   /** Invoiced actual booked directly against the line (seeded history). */
   actualAmount: number;
   vatExempt?: boolean;
+  /** Real VAT from the source bill, displayed and summed verbatim; overrides the 17.5% formula. */
+  vatOverride?: number;
   parentId?: string;
 }
 
