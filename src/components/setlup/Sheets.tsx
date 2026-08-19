@@ -220,9 +220,9 @@ export function ActionSheet({
   const [vatExempt, setVatExempt] = useState(false);
   const [section, setSection] = useState<Section>("expenses");
   const [name, setName] = useState("");
-  const [fileType, setFileType] = useState<"PDF" | "IMG">("PDF");
-  const [picked, setPicked] = useState<File | null>(null);
+  const [pickedList, setPickedList] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadNote, setUploadNote] = useState("");
   const [chained, setChained] = useState(false);
   const [fileKind, setFileKind] = useState<FileKind>("bill");
 
