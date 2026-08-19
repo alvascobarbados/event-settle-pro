@@ -61,26 +61,46 @@ function SettingsPage() {
           <h1 className="wide-116 text-[26px] font-black uppercase leading-none text-ink">Settings</h1>
 
           <div className="mt-5">
-            <SectionLabel>Business</SectionLabel>
+            <SectionLabel>Promoter</SectionLabel>
           </div>
           <Card className="mt-2 px-4 pb-4 pt-1">
-            <Field label="Business name">
+            <Field label="Promoter name">
               <TextInput value={business} onChange={(e) => setBusiness(e.target.value)} />
+            </Field>
+            <Field label="Username">
+              <TextInput
+                value={username}
+                onChange={(e) => setUsernameInput(e.target.value)}
+                placeholder="@yourname"
+              />
             </Field>
             <Field label="Currency">
               <TextInput value={currency} onChange={(e) => setCurrency(e.target.value)} />
             </Field>
+            <div className="mt-4 flex items-baseline justify-between">
+              <span className="text-[13px] font-semibold text-mute">Promoter code</span>
+              <span className="num text-[14.5px] font-bold text-ink">{promoterCode ?? "—"}</span>
+            </div>
             <div className="mt-5">
               <PrimaryButton
                 onClick={() => {
                   updateSettings({ business: business.trim() || db.settings.business, currency: currency.trim() || db.settings.currency });
-                  showToast("Settings saved");
+                  const next = username.trim().replace(/^@/, "").toLowerCase();
+                  if (next !== (promoterUsername ?? "")) {
+                    void setUsername(next);
+                  } else {
+                    showToast("Settings saved");
+                  }
                 }}
               >
                 Save
               </PrimaryButton>
             </div>
           </Card>
+          <FinePrint>
+            Your promoter code is permanent and identifies your account. The username is optional and yours to claim.
+          </FinePrint>
+
 
           <div className="mt-6">
             <SectionLabel>Tax</SectionLabel>
