@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSetlup } from "@/lib/setlup/store";
 import { balanceOf } from "@/lib/setlup/compute";
@@ -21,14 +21,35 @@ export function Sheet({
   title: string;
   children: ReactNode;
 }) {
+  const [drag, setDrag] = useState(0);
+  const startY = useRef<number | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!open) return;
+    setDrag(0);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  /* Swipe down to dismiss — only from the top of the scroll area, so lists still scroll. */
+  const onTouchStart = (e: React.TouchEvent) => {
+    if ((panelRef.current?.scrollTop ?? 0) > 0) return;
+    startY.current = e.touches[0]?.clientY ?? null;
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (startY.current === null) return;
+    const dy = (e.touches[0]?.clientY ?? 0) - startY.current;
+    setDrag(dy > 0 ? dy : 0);
+  };
+  const onTouchEnd = () => {
+    if (startY.current !== null && drag > 90) onClose();
+    startY.current = null;
+    setDrag(0);
+  };
 
   return (
     <>
@@ -43,13 +64,23 @@ export function Sheet({
         }}
       />
       <div
+        ref={panelRef}
         role="dialog"
         aria-label={title}
         aria-hidden={!open}
-        className="absolute inset-x-0 bottom-0 z-[70] max-h-[88%] overflow-y-auto rounded-t-[22px] bg-card transition-transform duration-200 ease-out"
-        style={{ transform: open ? "translateY(0)" : "translateY(102%)" }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        className="absolute inset-x-0 bottom-0 z-[70] max-h-[88%] overflow-y-auto rounded-t-[22px] bg-card ease-out"
+        style={{
+          transform: open ? `translateY(${drag}px)` : "translateY(102%)",
+          transition: drag > 0 ? "none" : "transform 200ms ease-out",
+        }}
       >
-        <div className="flex items-center justify-between px-5 pb-3 pt-4">
+        <div className="flex justify-center pt-2.5">
+          <span className="block h-1 w-9 rounded-full" style={{ backgroundColor: "var(--hairline)" }} />
+        </div>
+        <div className="flex items-center justify-between px-5 pb-3 pt-2.5">
           <div className="text-[15px] font-extrabold text-ink">{title}</div>
           <button type="button" onClick={onClose} aria-label="Close" className="grid h-9 w-9 place-items-center text-mute">
             <svg width="15" height="15" viewBox="0 0 18 18" aria-hidden>
@@ -62,6 +93,7 @@ export function Sheet({
     </>
   );
 }
+
 
 /* ---------------- form primitives ---------------- */
 

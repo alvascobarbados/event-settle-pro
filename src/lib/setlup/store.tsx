@@ -71,7 +71,38 @@ export interface RoutedBillInput {
   subcategoryId?: string;
   /** Real VAT from the scanned document; stored verbatim on the line. */
   vatAmount?: number;
+  /**
+   * True when the VAT position is known explicitly (scan or review sheet).
+   * Then the hard rule applies: no VAT → vatExempt, VAT → vatOverride.
+   * The 17.5% formula never runs on such a line.
+   */
+  vatKnown?: boolean;
 }
+
+export interface BillPatch {
+  counterparty: string;
+  description: string;
+  ref?: string;
+  amount: number;
+  dueDate: string;
+  vatAmount?: number;
+  vatKnown?: boolean;
+  categoryId: string;
+  subcategoryId?: string;
+}
+
+/** Resolves the single VAT path for a bill whose VAT position is known. */
+function vatFields(input: { vatKnown?: boolean; vatAmount?: number; vatExempt?: boolean }): {
+  vatExempt?: boolean;
+  vatOverride?: number;
+} {
+  if (!input.vatKnown) {
+    return { vatExempt: input.vatExempt || undefined, vatOverride: input.vatAmount };
+  }
+  const vat = Math.round((input.vatAmount ?? 0) * 100) / 100;
+  return vat > 0 ? { vatExempt: undefined, vatOverride: vat } : { vatExempt: true, vatOverride: undefined };
+}
+
 
 interface StoreValue {
   db: Db;
@@ -104,6 +135,11 @@ interface StoreValue {
   linkFileToLine: (fileId: string, lineId: string, amount?: number) => Promise<void>;
   ensureRoutedLine: (eventId: string, categoryId: string, subcategoryId?: string, childName?: string) => Promise<string | null>;
   deleteBill: (billId: string) => Promise<void>;
+  updateBill: (billId: string, patch: BillPatch) => Promise<void>;
+  deleteMoneyIn: (recordId: string) => Promise<void>;
+  deleteFile: (fileId: string) => Promise<void>;
+  deleteLine: (lineId: string) => Promise<void>;
+  refresh: () => Promise<void>;
   addBudgetLine: (eventId: string, section: Section, name: string, amount: number, vatExempt: boolean) => void;
   addFile: (file: Omit<FileRecord, "id">) => void;
   setStage: (eventId: string, stage: EventRecord["stage"]) => void;
@@ -595,6 +631,7 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
         if (!cat) return null;
         const parent = await ensureParentLine(input.eventId, cat.id);
         if (!parent) return null;
+        const vf = vatFields(input);
         const child = await insertLine({
           eventId: input.eventId,
           section: cat.section,
@@ -604,8 +641,8 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
           budgetAmount: input.amount,
           detail: input.description || undefined,
           ref: input.ref || undefined,
-          vatExempt: input.vatExempt || undefined,
-          vatOverride: input.vatAmount,
+          vatExempt: vf.vatExempt,
+          vatOverride: vf.vatOverride,
         });
         if (!child) return null;
         const bill: Bill = {
@@ -616,7 +653,7 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
           amount: input.amount,
           dueDate: input.dueDate,
           lineId: child.id,
-          vatExempt: input.vatExempt,
+          vatExempt: vf.vatExempt,
           categoryId: input.subcategoryId ?? cat.id,
           countInActual: true,
           payments: [],
@@ -626,6 +663,81 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
         if (error) fail(error);
         return { billId: bill.id, lineId: child.id };
       },
+      /** Re-opens a booked bill: amount, VAT position, detail, ref and routing. */
+      updateBill: async (billId, patch) => {
+        const bill = db.bills.find((b) => b.id === billId);
+        if (!bill) return;
+        const cat = db.categories.find((c) => c.id === patch.categoryId);
+        if (!cat) return;
+        const nodeId = patch.subcategoryId ?? cat.id;
+        const vf = vatFields(patch);
+        const line = bill.lineId ? db.lines.find((l) => l.id === bill.lineId) : undefined;
+
+        setDb((d) => ({
+          ...d,
+          bills: d.bills.map((b) =>
+            b.id === billId
+              ? {
+                  ...b,
+                  counterparty: patch.counterparty,
+                  description: patch.description || "\u2014",
+                  amount: patch.amount,
+                  dueDate: patch.dueDate,
+                  vatExempt: vf.vatExempt,
+                  categoryId: nodeId,
+                }
+              : b,
+          ),
+          lines: line
+            ? d.lines.map((l) =>
+                l.id === line.id
+                  ? {
+                      ...l,
+                      name: patch.counterparty,
+                      detail: patch.description || undefined,
+                      ref: patch.ref || undefined,
+                      budgetAmount: patch.amount,
+                      vatExempt: vf.vatExempt,
+                      vatOverride: vf.vatOverride,
+                    }
+                  : l,
+              )
+            : d.lines,
+        }));
+
+        const { error } = await supabase
+          .from("bills")
+          .update({
+            counterparty: patch.counterparty,
+            description: patch.description || "\u2014",
+            amount: patch.amount,
+            due_date: patch.dueDate,
+            vat_exempt: vf.vatExempt ?? false,
+            category_id: nodeId,
+          } as never)
+          .eq("id", billId);
+        if (error) return fail(error);
+
+        if (line) {
+          const r = await supabase
+            .from("lines")
+            .update({
+              name: patch.counterparty,
+              detail: patch.description || null,
+              ref: patch.ref || null,
+              budget_amount: patch.amount,
+              vat_exempt: vf.vatExempt ?? false,
+              vat_override: vf.vatOverride ?? null,
+            } as never)
+            .eq("id", line.id);
+          if (r.error) return fail(r.error);
+          if (line.categoryId !== nodeId) {
+            await routeLineFn(line.id, patch.categoryId, patch.subcategoryId);
+          }
+        }
+        showToast("Bill updated");
+      },
+
       addVendor: async ({ name, categoryId, subcategoryId, vatRegistered }) => {
         const p = promoterOrThrow();
         const value = name.trim();
@@ -703,14 +815,15 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
         if (!bill) return;
         const lineId = bill.lineId;
         const child = lineId ? db.lines.find((l) => l.id === lineId) : undefined;
+        /* documents survive a deleted bill — they are unlinked, never removed */
+        const unlinkIds = child ? db.files.filter((f) => f.lineId === child.id).map((f) => f.id) : [];
         /* the child line only exists to carry this bill — drop it when nothing else uses it */
         const dropChild =
           !!child &&
           !!child.parentId &&
           child.actualAmount === 0 &&
           db.bills.filter((b) => b.lineId === child.id).length === 1 &&
-          !db.moneyIn.some((r) => r.lineId === child.id) &&
-          !db.files.some((f) => f.lineId === child.id);
+          !db.moneyIn.some((r) => r.lineId === child.id);
         const parent = dropChild ? db.lines.find((l) => l.id === child!.parentId) : undefined;
         const dropParent =
           !!parent &&
@@ -726,7 +839,12 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
           ...d,
           bills: d.bills.filter((b) => b.id !== billId),
           lines: d.lines.filter((l) => !dropIds.includes(l.id)),
+          files: d.files.map((f) => (unlinkIds.includes(f.id) ? { ...f, lineId: undefined } : f)),
         }));
+        if (unlinkIds.length > 0) {
+          const u = await supabase.from("files").update({ line_id: null } as never).in("id", unlinkIds);
+          if (u.error) return fail(u.error);
+        }
         await supabase.from("payments").delete().eq("parent_kind", "out").eq("parent_id", billId);
         const { error } = await supabase.from("bills").delete().eq("id", billId);
         if (error) return fail(error);
@@ -736,6 +854,89 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
         }
         showToast("Bill deleted");
       },
+      /** Receivable delete — mirrors deleteBill: payments cascade, documents unlink. */
+      deleteMoneyIn: async (recordId) => {
+        const rec = db.moneyIn.find((r) => r.id === recordId);
+        if (!rec) return;
+        const child = rec.lineId ? db.lines.find((l) => l.id === rec.lineId) : undefined;
+        const unlinkIds = child ? db.files.filter((f) => f.lineId === child.id).map((f) => f.id) : [];
+        const dropChild =
+          !!child &&
+          !!child.parentId &&
+          child.actualAmount === 0 &&
+          db.moneyIn.filter((r) => r.lineId === child.id).length === 1 &&
+          !db.bills.some((b) => b.lineId === child.id);
+        const dropIds = dropChild ? [child!.id] : [];
+        setDb((d) => ({
+          ...d,
+          moneyIn: d.moneyIn.filter((r) => r.id !== recordId),
+          lines: d.lines.filter((l) => !dropIds.includes(l.id)),
+          files: d.files.map((f) => (unlinkIds.includes(f.id) ? { ...f, lineId: undefined } : f)),
+        }));
+        if (unlinkIds.length > 0) {
+          const u = await supabase.from("files").update({ line_id: null } as never).in("id", unlinkIds);
+          if (u.error) return fail(u.error);
+        }
+        await supabase.from("payments").delete().eq("parent_kind", "in").eq("parent_id", recordId);
+        const { error } = await supabase.from("money_in").delete().eq("id", recordId);
+        if (error) return fail(error);
+        if (dropIds.length > 0) {
+          const r = await supabase.from("lines").delete().in("id", dropIds);
+          if (r.error) fail(r.error);
+        }
+        showToast("Receivable deleted");
+      },
+      /** Removes the document only — any booked bill stays exactly as it is. */
+      deleteFile: async (fileId) => {
+        const file = db.files.find((f) => f.id === fileId);
+        if (!file) return;
+        setDb((d) => ({ ...d, files: d.files.filter((f) => f.id !== fileId) }));
+        if (file.storagePath) {
+          await supabase.storage.from("setlup-files").remove([file.storagePath]);
+        }
+        const { error } = await supabase.from("files").delete().eq("id", fileId);
+        if (error) return fail(error);
+        showToast("Document deleted");
+      },
+      /** Deletes a budget line on a planning event (and its empty parent). */
+      deleteLine: async (lineId) => {
+        const line = db.lines.find((l) => l.id === lineId);
+        if (!line) return;
+        const parent = line.parentId ? db.lines.find((l) => l.id === line.parentId) : undefined;
+        const dropParent =
+          !!parent &&
+          parent.budgetAmount === 0 &&
+          parent.actualAmount === 0 &&
+          db.lines.filter((l) => l.parentId === parent.id).length === 1 &&
+          !db.bills.some((b) => b.lineId === parent.id) &&
+          !db.moneyIn.some((r) => r.lineId === parent.id) &&
+          !db.files.some((f) => f.lineId === parent.id);
+        const dropIds = [lineId, ...(dropParent ? [parent!.id] : [])];
+        const unlinkIds = db.files.filter((f) => f.lineId && dropIds.includes(f.lineId)).map((f) => f.id);
+        setDb((d) => ({
+          ...d,
+          lines: d.lines.filter((l) => !dropIds.includes(l.id)),
+          files: d.files.map((f) => (unlinkIds.includes(f.id) ? { ...f, lineId: undefined } : f)),
+        }));
+        if (unlinkIds.length > 0) {
+          const u = await supabase.from("files").update({ line_id: null } as never).in("id", unlinkIds);
+          if (u.error) return fail(u.error);
+        }
+        const { error } = await supabase.from("lines").delete().in("id", dropIds);
+        if (error) return fail(error);
+        showToast("Line deleted");
+      },
+      /** Pull-to-refresh: re-reads everything this promoter owns. */
+      refresh: async () => {
+        if (!promoter) return;
+        try {
+          setDb(await loadDb(promoter));
+        } catch (e) {
+          console.error(e);
+          showToast("Could not refresh");
+        }
+      },
+
       addBudgetLine: (eventId, section, name, amount, vatExempt) => {
         const siblings = db.lines.filter((l) => l.eventId === eventId && l.section === section && !l.parentId);
         const line: Line = {

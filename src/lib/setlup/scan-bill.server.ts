@@ -12,18 +12,33 @@ const SCHEMA = {
   type: "object",
   properties: {
     is_bill: { type: "boolean", description: "True only if this document is a vendor invoice, bill or receipt." },
-    confidence: { type: "number", description: "0 to 1 overall confidence in the extraction." },
+    confidence: { type: "number", description: "0 to 1 overall confidence. Low if the printed numbers do not reconcile." },
     vendor_name: { type: "string", description: "Supplier / vendor name exactly as printed. Empty string if unknown." },
     invoice_number: { type: "string", description: "Invoice or receipt number. Empty string if none." },
     invoice_date: { type: "string", description: "Invoice date as ISO yyyy-mm-dd. Empty string if none." },
     currency: { type: "string", description: "Currency code, e.g. BBD or USD. Empty string if not printed." },
-    printed_total: { type: "number", description: "The total exactly as printed on the document." },
-    vat_amount: { type: ["number", "null"], description: "VAT / tax amount printed, else null." },
-    vat_treatment: { type: "string", enum: ["inclusive", "exclusive", "none"] },
+    subtotal: {
+      type: "number",
+      description: "The printed subtotal / net amount before any VAT line. 0 if the document prints no subtotal.",
+    },
+    printed_total: {
+      type: "number",
+      description: "The grand total printed at the foot of the document — the amount payable, exactly as printed.",
+    },
+    vat_amount: {
+      type: ["number", "null"],
+      description:
+        "The VAT / TAX / V.A.T. / Sales Tax amount PRINTED on the document. null when no such line is printed, when it reads 0.00, or when the document is zero-rated. Never infer, estimate or compute it.",
+    },
+    vat_treatment: {
+      type: "string",
+      enum: ["inclusive", "exclusive", "none"],
+      description:
+        "Classify by arithmetic: 'exclusive' when subtotal + VAT = grand total; 'inclusive' when the grand total equals the subtotal and VAT is shown as included/within; 'none' when no VAT is printed.",
+    },
     inclusive_total: {
       type: "number",
-      description:
-        "VAT-inclusive total. If the document shows an exclusive subtotal plus VAT, this is subtotal + VAT. If the printed total already includes VAT, or there is no VAT, this equals printed_total.",
+      description: "The VAT-inclusive amount payable. In both the exclusive and inclusive patterns this is the grand total.",
     },
     description: { type: "string", description: "Very short description of what was billed (max 6 words)." },
   },
@@ -34,6 +49,7 @@ const SCHEMA = {
     "invoice_number",
     "invoice_date",
     "currency",
+    "subtotal",
     "printed_total",
     "vat_amount",
     "vat_treatment",
@@ -43,9 +59,20 @@ const SCHEMA = {
   additionalProperties: false,
 } as const;
 
+const SYSTEM =
+  "You extract fields from Barbados supplier documents. Rules you must obey exactly:\n" +
+  "1. VAT is ONLY what is printed on the document. Never infer, estimate or compute VAT the document does not show.\n" +
+  "2. A line labelled TAX, V.A.T., VAT or Sales Tax on a Barbados invoice means VAT.\n" +
+  "3. A TAX/VAT line of 0.00, a document marked zero-rated, or no VAT line at all → vat_treatment \"none\" and vat_amount null.\n" +
+  "4. Classify the VAT pattern by ARITHMETIC, not wording:\n" +
+  "   (a) exclusive (most common): subtotal + VAT = grand total → vat_treatment \"exclusive\", inclusive_total = grand total.\n" +
+  "   (b) inclusive: the grand total equals the subtotal and VAT is shown as included/within → vat_treatment \"inclusive\", inclusive_total = grand total.\n" +
+  "5. Verify the printed numbers against each other. If subtotal, VAT and total do not reconcile, return a low confidence (below 0.6).\n" +
+  "6. Money values are plain numbers with no separators or currency symbols.";
+
 const PROMPT =
   "Read this supplier document and extract the fields with the extract_bill tool. Use only what is printed — never invent a value. " +
-  "Money values are plain numbers with no separators. If the document is not a vendor invoice, bill or receipt, set is_bill to false.";
+  "If the document is not a vendor invoice, bill or receipt, set is_bill to false.";
 
 function toBase64(bytes: Uint8Array): string {
   let s = "";
@@ -70,31 +97,64 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
 };
 
-/** Normalizes the model output so the app's VAT-inclusive storage rule always holds. */
+const r2 = (n: number) => Math.round(n * 100) / 100;
+const near = (a: number, b: number) => Math.abs(a - b) <= 0.02;
+
+/**
+ * Normalizes the model output so the app's VAT-inclusive storage rule always holds,
+ * and re-classifies the treatment from the printed arithmetic when the model disagrees.
+ */
 function normalize(raw: Record<string, unknown>): ScanFields {
-  const treatment = ["inclusive", "exclusive", "none"].includes(String(raw["vat_treatment"]))
+  let treatment = ["inclusive", "exclusive", "none"].includes(String(raw["vat_treatment"]))
     ? (String(raw["vat_treatment"]) as ScanFields["vat_treatment"])
     : "none";
   const printed = num(raw["printed_total"]);
+  const subtotalRaw = num(raw["subtotal"]);
   const vatRaw = raw["vat_amount"];
-  const vat = treatment === "none" || vatRaw === null || vatRaw === undefined ? null : num(vatRaw);
-  const inclusive =
-    treatment === "exclusive" ? Math.round((printed + (vat ?? 0)) * 100) / 100 : num(raw["inclusive_total"]) || printed;
+  let vat = vatRaw === null || vatRaw === undefined ? 0 : num(vatRaw);
+  let confidence = Math.max(0, Math.min(1, num(raw["confidence"])));
+
+  /* No printed VAT is the only route to "none" — the 17.5% formula never fills a gap. */
+  if (vat <= 0) {
+    treatment = "none";
+    vat = 0;
+  } else if (treatment === "none") {
+    treatment = subtotalRaw > 0 && near(subtotalRaw, printed) ? "inclusive" : "exclusive";
+  }
+
+  let inclusive = printed || r2(subtotalRaw + vat);
+  if (treatment === "exclusive") {
+    if (subtotalRaw > 0 && near(subtotalRaw + vat, printed)) {
+      inclusive = printed;
+    } else if (subtotalRaw > 0 && near(subtotalRaw, printed)) {
+      /* the printed "total" was the net figure */
+      inclusive = r2(printed + vat);
+    } else {
+      inclusive = printed || r2(subtotalRaw + vat);
+      confidence = Math.min(confidence, 0.4);
+    }
+  } else if (treatment === "inclusive") {
+    inclusive = printed;
+    if (subtotalRaw > 0 && !near(subtotalRaw, printed)) confidence = Math.min(confidence, 0.4);
+  }
+
   const date = String(raw["invoice_date"] ?? "");
   return {
     is_bill: Boolean(raw["is_bill"]),
-    confidence: Math.max(0, Math.min(1, num(raw["confidence"]))),
+    confidence,
     vendor_name: String(raw["vendor_name"] ?? "").trim(),
     invoice_number: String(raw["invoice_number"] ?? "").trim(),
     invoice_date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "",
     currency: String(raw["currency"] ?? "").trim(),
+    subtotal: treatment === "none" ? inclusive : r2(inclusive - vat),
     printed_total: printed,
-    vat_amount: vat,
+    vat_amount: treatment === "none" ? null : vat,
     vat_treatment: treatment,
     inclusive_total: inclusive,
     description: String(raw["description"] ?? "").trim(),
   };
 }
+
 
 export async function scanBillDocument(
   client: SupabaseClient,
@@ -137,7 +197,10 @@ export async function scanBillDocument(
       body: JSON.stringify({
         model: MODEL,
         temperature: 0,
-        messages: [{ role: "user", content }],
+        messages: [
+          { role: "system", content: SYSTEM },
+          { role: "user", content },
+        ],
         tools: [
           {
             type: "function",

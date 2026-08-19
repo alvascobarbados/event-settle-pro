@@ -6,6 +6,8 @@ export interface ScanFields {
   invoice_number: string;
   invoice_date: string;
   currency: string;
+  /** Net of VAT, as printed. Derived as inclusive_total − vat_amount when VAT applies. */
+  subtotal: number;
   printed_total: number;
   vat_amount: number | null;
   vat_treatment: "inclusive" | "exclusive" | "none";

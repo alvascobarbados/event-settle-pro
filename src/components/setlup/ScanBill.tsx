@@ -1,23 +1,28 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CategoryRouter, Field, Sheet, TextInput, Toggle } from "./Sheets";
-import { Chip, PrimaryButton } from "./ui";
+import { Chip, PillGroup, PrimaryButton } from "./ui";
 import { FileSource } from "./FileSource";
 import { scanBill } from "@/lib/setlup/scan-bill.functions";
 import type { ScanFields } from "@/lib/setlup/scan-bill.types";
 import { matchVendor } from "@/lib/setlup/vendors";
-import { todayIso } from "@/lib/setlup/format";
+import { money, todayIso } from "@/lib/setlup/format";
 import { useSetlup } from "@/lib/setlup/store";
-import type { FileRecord, Vendor } from "@/lib/setlup/types";
+import type { Bill, FileRecord, Vendor } from "@/lib/setlup/types";
 
 type Phase = "pick" | "working" | "review" | "failed";
+
+/** No VAT | VAT included in the total | VAT added on top of the total. */
+type VatMode = "none" | "included" | "added";
 
 interface Draft {
   vendor: string;
   ref: string;
   date: string;
+  /** What the user typed in "Total amount" — a subtotal when the mode is "added". */
   total: string;
   vat: string;
+  vatMode: VatMode;
   description: string;
   catId: string;
   subId: string;
@@ -30,28 +35,133 @@ const EMPTY: Draft = {
   date: todayIso(),
   total: "",
   vat: "",
+  vatMode: "none",
   description: "",
   catId: "",
   subId: "",
   remember: true,
 };
 
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
+/** The VAT-inclusive amount that will be booked. */
+function bookedTotal(d: Draft): number {
+  const total = Number(d.total) || 0;
+  if (d.vatMode !== "added") return r2(total);
+  return r2(total + (Number(d.vat) || 0));
+}
+
+/** The VAT that will be stored on the line — always exactly what the user sees. */
+function bookedVat(d: Draft): number {
+  if (d.vatMode === "none") return 0;
+  return r2(Number(d.vat) || 0);
+}
+
 function draftFrom(fields: ScanFields, vendors: Vendor[], cats: { id: string; parentId?: string }[]): Draft {
   const known = matchVendor(vendors, fields.vendor_name);
   const defCat = known?.defaultCategoryId ?? "";
   const defSub = known?.defaultSubcategoryId ?? "";
   const catExists = cats.some((c) => c.id === defCat);
+  const mode: VatMode =
+    fields.vat_treatment === "exclusive" ? "added" : fields.vat_treatment === "inclusive" ? "included" : "none";
+  const shown = mode === "added" ? fields.subtotal || r2(fields.inclusive_total - (fields.vat_amount ?? 0)) : fields.inclusive_total;
   return {
     ...EMPTY,
     vendor: known?.name ?? fields.vendor_name,
     ref: fields.invoice_number,
     date: fields.invoice_date || todayIso(),
-    total: fields.inclusive_total ? String(fields.inclusive_total) : "",
-    vat: fields.vat_amount === null ? "" : String(fields.vat_amount),
+    total: shown ? String(shown) : "",
+    vat: mode === "none" || fields.vat_amount === null ? "" : String(fields.vat_amount),
+    vatMode: mode,
     description: fields.description,
     catId: catExists ? defCat : "",
     subId: catExists && cats.some((c) => c.id === defSub) ? defSub : "",
   };
+}
+
+/* ---------------- shared bill form ---------------- */
+
+function BillFields({
+  draft,
+  set,
+  lowConfidence,
+}: {
+  draft: Draft;
+  set: (patch: Partial<Draft>) => void;
+  lowConfidence?: boolean;
+}) {
+  const amber = lowConfidence ? { borderColor: "var(--amber-fg, #B26B00)" } : undefined;
+  return (
+    <>
+      <div className="mt-3">
+        <Field label="Vendor">
+          <TextInput
+            value={draft.vendor}
+            onChange={(e) => set({ vendor: e.target.value })}
+            placeholder="Vendor name"
+            style={amber}
+          />
+        </Field>
+      </div>
+      <Field label="Invoice #">
+        <TextInput value={draft.ref} onChange={(e) => set({ ref: e.target.value })} placeholder="Optional" style={amber} />
+      </Field>
+      <Field label="What it was for">
+        <TextInput
+          value={draft.description}
+          onChange={(e) => set({ description: e.target.value })}
+          placeholder="e.g. Bar stock"
+        />
+      </Field>
+      <Field label="Invoice date">
+        <TextInput type="date" value={draft.date} onChange={(e) => set({ date: e.target.value })} style={amber} />
+      </Field>
+      <Field label="Total amount">
+        <TextInput
+          className="num"
+          type="number"
+          inputMode="decimal"
+          value={draft.total}
+          onChange={(e) => set({ total: e.target.value })}
+          style={amber}
+        />
+      </Field>
+      <div className="mt-3">
+        <PillGroup<VatMode>
+          value={draft.vatMode}
+          onChange={(v) => set({ vatMode: v, vat: v === "none" ? "" : draft.vat })}
+          options={[
+            { value: "none", label: "No VAT" },
+            { value: "included", label: "VAT included" },
+            { value: "added", label: "VAT added" },
+          ]}
+        />
+      </div>
+      {draft.vatMode !== "none" && (
+        <Field label="VAT on the bill">
+          <TextInput
+            className="num"
+            type="number"
+            inputMode="decimal"
+            value={draft.vat}
+            onChange={(e) => set({ vat: e.target.value })}
+            style={amber}
+          />
+        </Field>
+      )}
+      {draft.vatMode === "added" && (
+        <div className="num mt-2 text-[12.5px] text-mute">
+          Subtotal {money(Number(draft.total) || 0)} + VAT {money(bookedVat(draft))} = {money(bookedTotal(draft))}
+        </div>
+      )}
+      <CategoryRouter
+        section="expenses"
+        categoryId={draft.catId}
+        subcategoryId={draft.subId}
+        onChange={(c, sc) => set({ catId: c, subId: sc })}
+      />
+    </>
+  );
 }
 
 /**
@@ -183,7 +293,7 @@ export function ScanBillPanel({
   }
 
   async function save() {
-    const total = Number(draft.total) || 0;
+    const total = bookedTotal(draft);
     const vendorName = draft.vendor.trim();
     if (!vendorName || total <= 0) {
       showToast("Vendor and total are needed");
@@ -194,8 +304,7 @@ export function ScanBillPanel({
       return;
     }
     setSaving(true);
-    const vatRaw = draft.vat.trim();
-    const vatAmount = vatRaw === "" ? undefined : Number(vatRaw) || 0;
+    const vatAmount = bookedVat(draft);
     const res = await addRoutedBill({
       eventId,
       counterparty: vendorName,
@@ -203,10 +312,11 @@ export function ScanBillPanel({
       ref: draft.ref.trim() || undefined,
       amount: total,
       dueDate: draft.date || todayIso(),
-      vatExempt: vatAmount === 0 ? true : undefined,
       categoryId: draft.catId,
       subcategoryId: draft.subId || undefined,
       vatAmount,
+      /* hard guarantee: the 17.5% formula never runs on a scanned bill */
+      vatKnown: true,
     });
     if (!res) {
       setSaving(false);
@@ -231,7 +341,7 @@ export function ScanBillPanel({
         await updateVendor(known.id, {
           categoryId: draft.catId,
           subcategoryId: draft.subId || undefined,
-          vatRegistered: (vatAmount ?? 0) > 0 || known.vatRegistered,
+          vatRegistered: vatAmount > 0 || known.vatRegistered,
           alias: vendorName,
         });
       } else {
@@ -239,7 +349,7 @@ export function ScanBillPanel({
           name: vendorName,
           categoryId: draft.catId,
           subcategoryId: draft.subId || undefined,
-          vatRegistered: (vatAmount ?? 0) > 0,
+          vatRegistered: vatAmount > 0,
         });
       }
     }
@@ -268,6 +378,7 @@ export function ScanBillPanel({
   }
 
   const known = matchVendor(db.vendors, draft.vendor);
+  const low = phase === "review" && confidence !== null && confidence < 0.6;
 
   return (
     <>
@@ -283,53 +394,11 @@ export function ScanBillPanel({
       {phase === "review" && (
         <div className="flex items-center gap-2">
           <Chip tone="green">Prefilled by scan</Chip>
-          {confidence !== null && confidence < 0.6 && <Chip tone="neutral">Check the figures</Chip>}
+          {low && <Chip tone="neutral">Check the figures</Chip>}
           {known && <Chip tone="neutral">Known vendor</Chip>}
         </div>
       )}
-      <div className="mt-3">
-        <Field label="Vendor">
-          <TextInput value={draft.vendor} onChange={(e) => set({ vendor: e.target.value })} placeholder="Vendor name" />
-        </Field>
-      </div>
-      <Field label="Invoice #">
-        <TextInput value={draft.ref} onChange={(e) => set({ ref: e.target.value })} placeholder="Optional" />
-      </Field>
-      <Field label="What it was for">
-        <TextInput
-          value={draft.description}
-          onChange={(e) => set({ description: e.target.value })}
-          placeholder="e.g. Bar stock"
-        />
-      </Field>
-      <Field label="Invoice date">
-        <TextInput type="date" value={draft.date} onChange={(e) => set({ date: e.target.value })} />
-      </Field>
-      <Field label="Total (VAT inclusive)">
-        <TextInput
-          className="num"
-          type="number"
-          inputMode="decimal"
-          value={draft.total}
-          onChange={(e) => set({ total: e.target.value })}
-        />
-      </Field>
-      <Field label="VAT on the bill">
-        <TextInput
-          className="num"
-          type="number"
-          inputMode="decimal"
-          value={draft.vat}
-          onChange={(e) => set({ vat: e.target.value })}
-          placeholder="Leave blank if none"
-        />
-      </Field>
-      <CategoryRouter
-        section="expenses"
-        categoryId={draft.catId}
-        subcategoryId={draft.subId}
-        onChange={(c, sc) => set({ catId: c, subId: sc })}
-      />
+      <BillFields draft={draft} set={set} lowConfidence={low} />
       <Toggle label="Remember this vendor" checked={draft.remember} onChange={(v) => set({ remember: v })} />
       <div className="mt-5">
         <PrimaryButton onClick={() => !saving && void save()}>{saving ? "Saving…" : "Save bill"}</PrimaryButton>
@@ -382,5 +451,75 @@ export function ScanBillSheet({
     <Sheet open={open} onClose={onClose} title="Scan bill">
       {file && <ScanBillPanel eventId={file.eventId} existing={file} onDone={onClose} />}
     </Sheet>
+  );
+}
+
+/* ---------------- editing a booked bill ---------------- */
+
+/** Re-opens the review sheet prefilled from what is stored, so a mis-scan can be corrected. */
+export function EditBillSheet({ bill, open, onClose }: { bill?: Bill; open: boolean; onClose: () => void }) {
+  return (
+    <Sheet open={open} onClose={onClose} title="Edit bill">
+      {bill && <EditBillPanel key={bill.id} bill={bill} onDone={onClose} />}
+    </Sheet>
+  );
+}
+
+function EditBillPanel({ bill, onDone }: { bill: Bill; onDone: () => void }) {
+  const { db, updateBill, showToast } = useSetlup();
+  const line = bill.lineId ? db.lines.find((l) => l.id === bill.lineId) : undefined;
+  const node = db.categories.find((c) => c.id === (bill.categoryId ?? line?.categoryId));
+  const parentId = node?.parentId ?? node?.id ?? "";
+  const vat = line?.vatOverride ?? 0;
+
+  const [draft, setDraft] = useState<Draft>({
+    ...EMPTY,
+    vendor: bill.counterparty,
+    ref: line?.ref ?? "",
+    date: bill.dueDate,
+    total: String(bill.amount),
+    vat: vat > 0 ? String(vat) : "",
+    vatMode: vat > 0 ? "included" : "none",
+    description: line?.detail ?? (bill.description === "—" ? "" : bill.description),
+    catId: parentId,
+    subId: node?.parentId ? node.id : "",
+    remember: false,
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
+
+  async function save() {
+    const total = bookedTotal(draft);
+    if (!draft.vendor.trim() || total <= 0) {
+      showToast("Vendor and total are needed");
+      return;
+    }
+    if (!draft.catId) {
+      showToast("Choose a category");
+      return;
+    }
+    setSaving(true);
+    await updateBill(bill.id, {
+      counterparty: draft.vendor.trim(),
+      description: draft.description.trim(),
+      ref: draft.ref.trim() || undefined,
+      amount: total,
+      dueDate: draft.date || todayIso(),
+      vatAmount: bookedVat(draft),
+      vatKnown: true,
+      categoryId: draft.catId,
+      subcategoryId: draft.subId || undefined,
+    });
+    setSaving(false);
+    onDone();
+  }
+
+  return (
+    <>
+      <BillFields draft={draft} set={set} />
+      <div className="mt-5">
+        <PrimaryButton onClick={() => !saving && void save()}>{saving ? "Saving…" : "Save changes"}</PrimaryButton>
+      </div>
+    </>
   );
 }
