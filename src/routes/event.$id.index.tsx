@@ -217,7 +217,9 @@ function EventHome() {
         Every figure is VAT inclusive. VAT within is shown in the right-hand column on Reports.
       </FinePrint>
     </div>
+    </PullToRefresh>
   );
+
 }
 
 function Cell({ label, value }: { label: string; value: number }) {
