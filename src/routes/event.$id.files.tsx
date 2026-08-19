@@ -58,31 +58,31 @@ function Files() {
         {files.length === 0 ? (
           <EmptyState title="No files here" body="Attach an invoice or receipt with the + button and link it to a P&L line." />
         ) : (
-          files.map((f) => <FileRow key={f.id} file={f} />)
+          files.map((f) => <FileRow key={f.id} file={f} onOpen={() => setPeekId(f.id)} />)
         )}
       </Card>
+
+      <BillPeek
+        target={
+          peekFile
+            ? {
+                label: peekFile.name,
+                detail: [fmtDate(peekFile.date), lineName(db, peekFile.lineId) ?? "Unlinked"].join(" · "),
+                amount: peekFile.amount,
+                file: peekFile,
+              }
+            : null
+        }
+        onClose={() => setPeekId(null)}
+      />
     </div>
   );
 }
 
-function FileRow({ file: f }: { file: FileRecord }) {
+function FileRow({ file: f, onOpen }: { file: FileRecord; onOpen: () => void }) {
   const { db, showToast, userId, setFileStoragePath } = useSetlup();
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  async function open() {
-    if (!f.storagePath || busy) return;
-    setBusy(true);
-    const { data, error } = await supabase.storage
-      .from("setlup-files")
-      .createSignedUrl(f.storagePath, 60 * 10);
-    setBusy(false);
-    if (error || !data) {
-      showToast("Could not open file");
-      return;
-    }
-    window.open(data.signedUrl, "_blank", "noopener");
-  }
 
   async function upload(file: File) {
     if (!userId) return;
