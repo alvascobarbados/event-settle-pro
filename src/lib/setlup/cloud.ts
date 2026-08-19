@@ -81,6 +81,8 @@ function rowToLine(r: Row): Line {
     actualAmount: n(r["actual_amount"]),
     vatExempt: ob(r["vat_exempt"]),
     vatOverride: on(r["vat_override"]),
+    detail: os(r["detail"]),
+    ref: os(r["ref"]),
     parentId: os(r["parent_id"]),
   };
 }
@@ -97,6 +99,8 @@ function lineToRow(l: Line, userId: string): Row {
     actual_amount: l.actualAmount,
     vat_exempt: l.vatExempt ?? null,
     vat_override: l.vatOverride ?? null,
+    detail: l.detail ?? null,
+    ref: l.ref ?? null,
     parent_id: l.parentId ?? null,
   };
 }
