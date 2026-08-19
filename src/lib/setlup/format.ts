@@ -46,3 +46,10 @@ export function daysBetween(fromIso: string, toIso: string): number {
 export function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
+
+/** 100001 → "10 00 01" — display only; storage stays a plain number. */
+export function fmtEventNumber(n: number | null | undefined): string {
+  if (n === null || n === undefined) return "";
+  const s = String(n);
+  return (s.length % 2 === 1 ? "0" + s : s).replace(/(\d\d)(?=\d)/g, "$1 ");
+}
