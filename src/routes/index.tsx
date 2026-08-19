@@ -39,23 +39,39 @@ function Lobby() {
             {db.settings.business} · {db.settings.currency} · VAT {db.settings.vatRate}%
           </p>
 
-          <div className="mt-5 space-y-3">
-            {db.events.map((e) => (
-              <EventCard key={e.id} event={e} />
-            ))}
-
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-[16px] py-5 text-[13px] font-extrabold uppercase text-mute"
-              style={{ border: "1.5px dashed var(--dash)", letterSpacing: "0.09em" }}
+          {db.events.length === 0 ? (
+            <div
+              className="mt-6 rounded-[16px] px-5 py-10 text-center"
+              style={{ border: "1.5px dashed var(--dash)" }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-              </svg>
-              New event
-            </button>
-          </div>
+              <div className="wide-116 text-[17px] font-black uppercase text-ink">No events yet</div>
+              <p className="mx-auto mt-2 max-w-[16rem] text-[12.5px] leading-snug text-mute">
+                Create your first event to start budgeting, tracking bills and settling up.
+              </p>
+              <div className="mt-5">
+                <PrimaryButton onClick={() => setOpen(true)}>Create event</PrimaryButton>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-5 space-y-3">
+              {db.events.map((e) => (
+                <EventCard key={e.id} event={e} />
+              ))}
+
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-[16px] py-5 text-[13px] font-extrabold uppercase text-mute"
+                style={{ border: "1.5px dashed var(--dash)", letterSpacing: "0.09em" }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                </svg>
+                New event
+              </button>
+            </div>
+          )}
+
         </div>
       </PageScroll>
 
