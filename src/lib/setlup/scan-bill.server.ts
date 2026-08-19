@@ -1,19 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** Shape the model must return. Never written to the ledger without user confirmation. */
-export interface ScanFields {
-  is_bill: boolean;
-  confidence: number;
-  vendor_name: string;
-  invoice_number: string;
-  invoice_date: string;
-  currency: string;
-  printed_total: number;
-  vat_amount: number | null;
-  vat_treatment: "inclusive" | "exclusive" | "none";
-  inclusive_total: number;
-  description: string;
-}
+import type { ScanFields } from "./scan-bill.types";
 
 export type ScanResult = { fields: ScanFields } | { error: string };
 

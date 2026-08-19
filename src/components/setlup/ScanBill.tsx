@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CategoryRouter, Field, Sheet, TextInput, Toggle } from "./Sheets";
 import { Chip, PrimaryButton } from "./ui";
 import { scanBill } from "@/lib/setlup/scan-bill.functions";
-import type { ScanFields } from "@/lib/setlup/scan-bill.server";
+import type { ScanFields } from "@/lib/setlup/scan-bill.types";
 import { matchVendor } from "@/lib/setlup/vendors";
 import { todayIso } from "@/lib/setlup/format";
 import { useSetlup } from "@/lib/setlup/store";
@@ -152,7 +152,7 @@ export function ScanBillPanel({
       ref: draft.ref.trim() || undefined,
       amount: total,
       dueDate: draft.date || todayIso(),
-      vatExempt: vatAmount === undefined ? undefined : vatAmount === 0 || undefined,
+      vatExempt: vatAmount === 0 ? true : undefined,
       categoryId: draft.catId,
       subcategoryId: draft.subId || undefined,
       vatAmount,
