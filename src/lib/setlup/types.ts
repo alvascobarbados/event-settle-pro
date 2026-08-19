@@ -1,6 +1,17 @@
 export type Stage = "planning" | "reconciling" | "closed";
 export type Section = "revenue" | "expenses";
 
+/** Promoter-owned taxonomy. parentId null = category, set = subcategory (max two levels). */
+export interface Category {
+  id: string;
+  promoterId: string;
+  parentId?: string;
+  section: Section;
+  name: string;
+  sortOrder: number;
+  archived: boolean;
+}
+
 export interface Accent {
   accent: string;
   accentDeep: string;
@@ -57,6 +68,8 @@ export interface Line {
   /** Invoice / reference number from the source document. */
   ref?: string;
   parentId?: string;
+  /** Routed taxonomy node — a category, or a subcategory when one was chosen. */
+  categoryId?: string;
 }
 
 export interface Payment {
@@ -77,6 +90,8 @@ export interface Ledgerable {
   payments: Payment[];
   /** false when the line already carries this amount in its seeded actual. */
   countInActual?: boolean;
+  /** Routed taxonomy node for reporting. */
+  categoryId?: string;
 }
 
 export interface MoneyIn extends Ledgerable {}
@@ -102,6 +117,7 @@ export interface Settings {
 
 export interface Db {
   settings: Settings;
+  categories: Category[];
   events: EventRecord[];
   lines: Line[];
   moneyIn: MoneyIn[];

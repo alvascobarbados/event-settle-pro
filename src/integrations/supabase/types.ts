@@ -17,6 +17,7 @@ export type Database = {
       bills: {
         Row: {
           amount: number
+          category_id: string | null
           count_in_actual: boolean | null
           counterparty: string
           description: string
@@ -28,6 +29,7 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          category_id?: string | null
           count_in_actual?: boolean | null
           counterparty: string
           description?: string
@@ -39,6 +41,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          category_id?: string | null
           count_in_actual?: boolean | null
           counterparty?: string
           description?: string
@@ -50,10 +53,65 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "bills_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bills_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      categories: {
+        Row: {
+          archived: boolean
+          created_at: string
+          id: string
+          name: string
+          parent_id: string | null
+          promoter_id: string
+          section: string
+          sort_order: number
+        }
+        Insert: {
+          archived?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          parent_id?: string | null
+          promoter_id: string
+          section: string
+          sort_order?: number
+        }
+        Update: {
+          archived?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          parent_id?: string | null
+          promoter_id?: string
+          section?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categories_promoter_id_fkey"
+            columns: ["promoter_id"]
+            isOneToOne: false
+            referencedRelation: "promoters"
             referencedColumns: ["id"]
           },
         ]
@@ -216,6 +274,7 @@ export type Database = {
         Row: {
           actual_amount: number
           budget_amount: number
+          category_id: string | null
           detail: string | null
           event_id: string
           id: string
@@ -230,6 +289,7 @@ export type Database = {
         Insert: {
           actual_amount?: number
           budget_amount?: number
+          category_id?: string | null
           detail?: string | null
           event_id: string
           id: string
@@ -244,6 +304,7 @@ export type Database = {
         Update: {
           actual_amount?: number
           budget_amount?: number
+          category_id?: string | null
           detail?: string | null
           event_id?: string
           id?: string
@@ -256,6 +317,13 @@ export type Database = {
           vat_override?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "lines_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lines_event_id_fkey"
             columns: ["event_id"]

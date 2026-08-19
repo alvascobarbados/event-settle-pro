@@ -3,6 +3,7 @@ import { seedDb } from "./seed";
 import type {
   Accent,
   Bill,
+  Category,
   Db,
   EventRecord,
   FileRecord,
@@ -86,10 +87,11 @@ function rowToLine(r: Row): Line {
     detail: os(r["detail"]),
     ref: os(r["ref"]),
     parentId: os(r["parent_id"]),
+    categoryId: os(r["category_id"]),
   };
 }
 
-function lineToRow(l: Line): Row {
+export function lineToRow(l: Line): Row {
   return {
     id: l.id,
     event_id: l.eventId,
@@ -103,6 +105,7 @@ function lineToRow(l: Line): Row {
     detail: l.detail ?? null,
     ref: l.ref ?? null,
     parent_id: l.parentId ?? null,
+    category_id: l.categoryId ?? null,
   };
 }
 
@@ -117,6 +120,7 @@ function rowToLedger(r: Row, payments: Payment[]): MoneyIn {
     lineId: os(r["line_id"]),
     vatExempt: ob(r["vat_exempt"]),
     countInActual: ob(r["count_in_actual"]),
+    categoryId: os(r["category_id"]),
     payments,
   };
 }
@@ -132,6 +136,24 @@ export function ledgerToRow(r: MoneyIn | Bill): Row {
     line_id: r.lineId ?? null,
     vat_exempt: r.vatExempt ?? null,
     count_in_actual: r.countInActual ?? null,
+  };
+}
+
+/** bills carry the routed taxonomy node; money_in does not. */
+export function billToRow(r: Bill): Row {
+  return { ...ledgerToRow(r), category_id: r.categoryId ?? null };
+}
+
+
+export function rowToCategory(r: Row): Category {
+  return {
+    id: String(r["id"]),
+    promoterId: String(r["promoter_id"]),
+    parentId: os(r["parent_id"]),
+    section: String(r["section"]) as Section,
+    name: String(r["name"]),
+    sortOrder: n(r["sort_order"]),
+    archived: Boolean(r["archived"]),
   };
 }
 
@@ -188,16 +210,17 @@ export const storagePrefix = (promoterId: string, eventId: string) => `${promote
 /* ------------------------------------------------------------------ */
 
 export async function loadDb(promoter: Promoter): Promise<Db> {
-  const [events, lines, moneyIn, bills, payments, files] = await Promise.all([
+  const [events, lines, moneyIn, bills, payments, files, categories] = await Promise.all([
     supabase.from("events").select("*").order("date", { ascending: false }),
     supabase.from("lines").select("*").order("sort_order", { ascending: true }),
     supabase.from("money_in").select("*"),
     supabase.from("bills").select("*"),
     supabase.from("payments").select("*").order("date", { ascending: true }),
     supabase.from("files").select("*").order("date", { ascending: false }),
+    supabase.from("categories").select("*").order("sort_order", { ascending: true }),
   ]);
 
-  const err = [events, lines, moneyIn, bills, payments, files].find((r) => r.error)?.error;
+  const err = [events, lines, moneyIn, bills, payments, files, categories].find((r) => r.error)?.error;
   if (err) throw err;
 
   const payRows = (payments.data ?? []) as Row[];
@@ -214,6 +237,7 @@ export async function loadDb(promoter: Promoter): Promise<Db> {
 
   return {
     settings,
+    categories: ((categories.data ?? []) as Row[]).map(rowToCategory),
     events: ((events.data ?? []) as Row[]).map(rowToEvent),
     lines: ((lines.data ?? []) as Row[]).map(rowToLine),
     moneyIn: ((moneyIn.data ?? []) as Row[]).map((r) => rowToLedger(r, paymentsFor("in", String(r["id"])))),
@@ -253,6 +277,7 @@ function namespaced(db: Db, suffix: string): Db {
   const key = (id: string) => `${id}-${suffix}`;
   return {
     settings: db.settings,
+    categories: db.categories,
     events: db.events.map((e) => ({ ...e, id: key(e.id) })),
     lines: db.lines.map((l) => ({
       ...l,

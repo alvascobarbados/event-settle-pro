@@ -3,8 +3,10 @@ import { useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ScrollTop } from "@/components/setlup/Shell";
 import { BillPeek } from "@/components/setlup/BillPeek";
-import { Card, Chip, EmptyState, PillGroup, SectionLabel } from "@/components/setlup/ui";
-import { lineName } from "@/lib/setlup/compute";
+import { RouteSheet } from "@/components/setlup/Sheets";
+import { Card, Chip, EmptyState, PillGroup, PrimaryButton, SectionLabel } from "@/components/setlup/ui";
+import { CategoryRouter, Sheet } from "@/components/setlup/Sheets";
+import { categoryLabel } from "@/lib/setlup/compute";
 import { fmtDate, money } from "@/lib/setlup/format";
 import { useSetlup } from "@/lib/setlup/store";
 import type { FileRecord } from "@/lib/setlup/types";
@@ -29,6 +31,7 @@ function Files() {
   const event = getEvent(id);
   const [filter, setFilter] = useState<Filter>("all");
   const [peekId, setPeekId] = useState<string | null>(null);
+  const [routeFileId, setRouteFileId] = useState<string | null>(null);
   const peekFile = peekId ? db.files.find((f) => f.id === peekId) : undefined;
   if (!event) return null;
 
@@ -60,16 +63,20 @@ function Files() {
         {files.length === 0 ? (
           <EmptyState title="No files here" body="Attach an invoice or receipt with the + button and link it to a P&L line." />
         ) : (
-          files.map((f) => <FileRow key={f.id} file={f} onOpen={() => setPeekId(f.id)} />)
+          files.map((f) => (
+            <FileRow key={f.id} file={f} onOpen={() => setPeekId(f.id)} onRoute={() => setRouteFileId(f.id)} />
+          ))
         )}
       </Card>
+
+      <FileRouteSheet fileId={routeFileId} onClose={() => setRouteFileId(null)} />
 
       <BillPeek
         target={
           peekFile
             ? {
                 label: peekFile.name,
-                detail: [fmtDate(peekFile.date), lineName(db, peekFile.lineId) ?? "Unlinked"].join(" · "),
+                detail: [fmtDate(peekFile.date), categoryLabel(db, peekFile.lineId) ?? "Unlinked"].join(" · "),
                 amount: peekFile.amount,
                 file: peekFile,
               }
@@ -81,7 +88,62 @@ function Files() {
   );
 }
 
-function FileRow({ file: f, onOpen }: { file: FileRecord; onOpen: () => void }) {
+/** Routes a file (and its linked vendor line) to a category / subcategory. */
+function FileRouteSheet({ fileId, onClose }: { fileId: string | null; onClose: () => void }) {
+  const { db, routeFile } = useSetlup();
+  const file = fileId ? db.files.find((f) => f.id === fileId) : undefined;
+  const linked = file?.lineId ? db.lines.find((l) => l.id === file.lineId) : undefined;
+  if (linked?.parentId) return <RouteSheet lineId={linked.id} open={!!fileId} onClose={onClose} />;
+  return <UnlinkedRouteSheet file={file} open={!!fileId} onClose={onClose} onSave={routeFile} />;
+}
+
+function UnlinkedRouteSheet({
+  file,
+  open,
+  onClose,
+  onSave,
+}: {
+  file?: FileRecord;
+  open: boolean;
+  onClose: () => void;
+  onSave: (fileId: string, categoryId: string, subcategoryId?: string) => Promise<void>;
+}) {
+  const [cat, setCat] = useState("");
+  const [sub, setSub] = useState("");
+  return (
+    <Sheet open={open} onClose={onClose} title="Route to category">
+      {file && (
+        <>
+          <div className="rounded-[12px] bg-app px-3.5 py-3">
+            <div className="text-[14.5px] font-bold text-ink">{file.name}</div>
+          </div>
+          <CategoryRouter
+            section="expenses"
+            categoryId={cat}
+            subcategoryId={sub}
+            onChange={(c, sc) => {
+              setCat(c);
+              setSub(sc);
+            }}
+          />
+          <div className="mt-5">
+            <PrimaryButton
+              onClick={async () => {
+                if (!cat) return;
+                await onSave(file.id, cat, sub || undefined);
+                onClose();
+              }}
+            >
+              Save routing
+            </PrimaryButton>
+          </div>
+        </>
+      )}
+    </Sheet>
+  );
+}
+
+function FileRow({ file: f, onOpen, onRoute }: { file: FileRecord; onOpen: () => void; onRoute: () => void }) {
   const { db, showToast, promoterId, setFileStoragePath } = useSetlup();
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -122,13 +184,23 @@ function FileRow({ file: f, onOpen }: { file: FileRecord; onOpen: () => void }) 
           {f.storagePath ? " · tap to view" : " · No PDF attached"}
         </span>
         <span className="mt-1.5 block">
-          <Chip tone={f.lineId ? "green" : "neutral"}>{lineName(db, f.lineId) ?? "Unlinked"}</Chip>
+          <Chip tone={f.lineId ? "green" : "neutral"}>{categoryLabel(db, f.lineId) ?? "Unlinked"}</Chip>
         </span>
       </span>
       {f.amount !== undefined && (
         <span className="num shrink-0 text-[13.5px] font-bold text-ink">{money(f.amount)}</span>
       )}
     </>
+  );
+
+  const routeBtn = (
+    <button
+      type="button"
+      onClick={onRoute}
+      className="shrink-0 self-center text-[11.5px] font-extrabold uppercase tracking-[0.06em] text-mute"
+    >
+      Route
+    </button>
   );
 
   if (!f.storagePath) {
@@ -155,16 +227,16 @@ function FileRow({ file: f, onOpen }: { file: FileRecord; onOpen: () => void }) 
         >
           {busy ? "Uploading…" : "Attach PDF"}
         </button>
+        {routeBtn}
       </div>
     );
   }
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="dashed-row flex w-full items-start gap-3 px-4 py-3.5 text-left active:opacity-70"
-    >
-      {body}
-    </button>
+    <div className="dashed-row flex items-start gap-3 px-4 py-3.5">
+      <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-start gap-3 text-left active:opacity-70">
+        {body}
+      </button>
+      {routeBtn}
+    </div>
   );
 }

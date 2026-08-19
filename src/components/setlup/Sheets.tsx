@@ -203,7 +203,8 @@ export function ActionSheet({
   open: boolean;
   onClose: () => void;
 }) {
-  const { db, addBill, addMoneyIn, addBudgetLine, addFile, showToast, promoterId } = useSetlup();
+  const { db, addMoneyIn, addBudgetLine, addFile, addRoutedBill, ensureRoutedLine, showToast, promoterId } =
+    useSetlup();
   const [mode, setMode] = useState<Mode>("menu");
 
   const [counterparty, setCounterparty] = useState("");
@@ -211,6 +212,9 @@ export function ActionSheet({
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState(todayIso());
   const [lineId, setLineId] = useState("");
+  const [catId, setCatId] = useState("");
+  const [subId, setSubId] = useState("");
+  const [ref, setRef] = useState("");
   const [vatExempt, setVatExempt] = useState(false);
   const [section, setSection] = useState<Section>("expenses");
   const [name, setName] = useState("");
@@ -225,6 +229,9 @@ export function ActionSheet({
     setAmount("");
     setDueDate(todayIso());
     setLineId("");
+    setCatId("");
+    setSubId("");
+    setRef("");
     setVatExempt(false);
     setName("");
   };
@@ -309,30 +316,65 @@ export function ActionSheet({
           <Field label="Due date">
             <TextInput type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </Field>
-          <Field label="P&L line">
-            <SelectInput value={lineId} onChange={(e) => setLineId(e.target.value)}>
-              <option value="">Unassigned</option>
-              {lineOptions(mode === "bill" ? ["expenses"] : ["revenue"])}
-            </SelectInput>
-          </Field>
+          {mode === "bill" ? (
+            <>
+              <Field label="Invoice number (optional)">
+                <TextInput value={ref} onChange={(e) => setRef(e.target.value)} placeholder="e.g. 81205-2" />
+              </Field>
+              <CategoryRouter
+                section="expenses"
+                categoryId={catId}
+                subcategoryId={subId}
+                onChange={(c, sc) => {
+                  setCatId(c);
+                  setSubId(sc);
+                }}
+              />
+            </>
+          ) : (
+            <Field label="P&L line">
+              <SelectInput value={lineId} onChange={(e) => setLineId(e.target.value)}>
+                <option value="">Unassigned</option>
+                {lineOptions(["revenue"])}
+              </SelectInput>
+            </Field>
+          )}
           <Toggle label="VAT exempt" checked={vatExempt} onChange={setVatExempt} />
           <div className="mt-5">
             <PrimaryButton
-              onClick={() => {
+              onClick={async () => {
                 const v = Number(amount) || 0;
                 if (!counterparty.trim() || v <= 0) return;
-                const payload = {
-                  eventId,
-                  counterparty: counterparty.trim(),
-                  description: description.trim() || "—",
-                  amount: v,
-                  dueDate,
-                  lineId: lineId || undefined,
-                  vatExempt,
-                };
-                if (mode === "bill") addBill(payload);
-                else addMoneyIn(payload);
-                showToast(mode === "bill" ? "Bill added" : "Money in added");
+                if (mode === "bill") {
+                  if (!catId) {
+                    showToast("Choose a category");
+                    return;
+                  }
+                  const res = await addRoutedBill({
+                    eventId,
+                    counterparty: counterparty.trim(),
+                    description: description.trim(),
+                    ref: ref.trim() || undefined,
+                    amount: v,
+                    dueDate,
+                    vatExempt,
+                    categoryId: catId,
+                    subcategoryId: subId || undefined,
+                  });
+                  if (!res) return;
+                  showToast("Bill added");
+                } else {
+                  addMoneyIn({
+                    eventId,
+                    counterparty: counterparty.trim(),
+                    description: description.trim() || "—",
+                    amount: v,
+                    dueDate,
+                    lineId: lineId || undefined,
+                    vatExempt,
+                  });
+                  showToast("Money in added");
+                }
                 close();
               }}
             >
@@ -402,12 +444,15 @@ export function ActionSheet({
           <Field label="Amount (optional)">
             <TextInput className="num" type="number" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </Field>
-          <Field label="Link to line">
-            <SelectInput value={lineId} onChange={(e) => setLineId(e.target.value)}>
-              <option value="">Unlinked</option>
-              {lineOptions(["revenue", "expenses"])}
-            </SelectInput>
-          </Field>
+          <CategoryRouter
+            section="expenses"
+            categoryId={catId}
+            subcategoryId={subId}
+            onChange={(c, sc) => {
+              setCatId(c);
+              setSubId(sc);
+            }}
+          />
           <div className="mt-5">
             <PrimaryButton
               onClick={async () => {
@@ -431,12 +476,15 @@ export function ActionSheet({
                   }
                   storagePath = path;
                 }
+                const routedLineId = catId
+                  ? await ensureRoutedLine(eventId, catId, subId || undefined, subId ? name.trim() : undefined)
+                  : undefined;
                 addFile({
                   eventId,
                   name: name.trim(),
                   type: fileType,
                   date: todayIso(),
-                  lineId: lineId || undefined,
+                  lineId: routedLineId ?? undefined,
                   amount: Number(amount) || undefined,
                   storagePath,
                 });
@@ -471,6 +519,114 @@ export function ActionSheet({
         </>
       )}
 
+    </Sheet>
+  );
+}
+
+/* ---------------- category router ---------------- */
+
+export function CategoryRouter({
+  section,
+  categoryId,
+  subcategoryId,
+  onChange,
+}: {
+  section: Section;
+  categoryId: string;
+  subcategoryId: string;
+  onChange: (categoryId: string, subcategoryId: string) => void;
+}) {
+  const { db } = useSetlup();
+  const byOrder = (a: { sortOrder: number; name: string }, b: { sortOrder: number; name: string }) =>
+    a.sortOrder - b.sortOrder || a.name.localeCompare(b.name);
+  const cats = db.categories.filter((c) => !c.parentId && c.section === section && !c.archived).sort(byOrder);
+  const subs = db.categories.filter((c) => c.parentId === categoryId && !c.archived).sort(byOrder);
+
+  return (
+    <>
+      <Field label="Category">
+        <SelectInput value={categoryId} onChange={(e) => onChange(e.target.value, "")}>
+          <option value="">Choose a category</option>
+          {cats.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </SelectInput>
+      </Field>
+      {subs.length > 0 && (
+        <Field label="Subcategory (optional)">
+          <SelectInput value={subcategoryId} onChange={(e) => onChange(categoryId, e.target.value)}>
+            <option value="">None</option>
+            {subs.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+      )}
+    </>
+  );
+}
+
+/** Re-route an existing linked line to another category / subcategory. */
+export function RouteSheet({
+  lineId,
+  open,
+  onClose,
+}: {
+  lineId: string | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { db, routeLine } = useSetlup();
+  const line = lineId ? db.lines.find((l) => l.id === lineId) : undefined;
+  const [cat, setCat] = useState("");
+  const [sub, setSub] = useState("");
+
+  useEffect(() => {
+    if (!line) return;
+    const node = line.categoryId ? db.categories.find((c) => c.id === line.categoryId) : undefined;
+    if (node?.parentId) {
+      setCat(node.parentId);
+      setSub(node.id);
+    } else {
+      setCat(node?.id ?? "");
+      setSub("");
+    }
+  }, [lineId]);
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Route to category">
+      {line && (
+        <>
+          <div className="rounded-[12px] bg-app px-3.5 py-3">
+            <div className="text-[14.5px] font-bold text-ink">{line.name}</div>
+            {line.detail && <div className="mt-0.5 text-[12.5px] text-mute">{line.detail}</div>}
+          </div>
+          <CategoryRouter
+            section={line.section}
+            categoryId={cat}
+            subcategoryId={sub}
+            onChange={(c, sc) => {
+              setCat(c);
+              setSub(sc);
+            }}
+          />
+          <div className="mt-5">
+            <PrimaryButton
+              onClick={async () => {
+                if (!cat) return;
+                await routeLine(line.id, cat, sub || undefined);
+                onClose();
+              }}
+            >
+              Save routing
+            </PrimaryButton>
+          </div>
+        </>
+      )}
     </Sheet>
   );
 }

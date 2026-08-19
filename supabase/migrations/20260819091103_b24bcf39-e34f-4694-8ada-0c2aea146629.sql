@@ -1,0 +1,1 @@
+revoke all on function public.categories_two_levels() from public, anon, authenticated;
