@@ -35,10 +35,12 @@ function CategoriesPage() {
       <PageScroll>
         <div className="px-4 pb-10 pt-5">
           <h1 className="wide-116 text-[26px] font-black uppercase leading-none text-ink">Categories</h1>
-          <FinePrint className="mt-2">
+          <div className="mt-2">
+            <FinePrint>
             Your taxonomy. Bills route to a category, optionally a subcategory. Archived items stay on old records but
-            disappear from the router.
-          </FinePrint>
+              disappear from the router.
+            </FinePrint>
+          </div>
 
           {db.categories.length === 0 && (
             <Card className="mt-5">

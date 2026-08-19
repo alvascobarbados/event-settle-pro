@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppBar, PageScroll } from "@/components/setlup/Shell";
 import { Field, TextInput } from "@/components/setlup/Sheets";
@@ -59,6 +59,24 @@ function SettingsPage() {
       <PageScroll>
         <div className="px-4 pb-10 pt-5">
           <h1 className="wide-116 text-[26px] font-black uppercase leading-none text-ink">Settings</h1>
+
+          <div className="mt-5">
+            <SectionLabel>Taxonomy</SectionLabel>
+          </div>
+          <Card className="mt-2 overflow-hidden">
+            <Link
+              to="/categories"
+              className="flex items-center justify-between px-4 py-4"
+            >
+              <span>
+                <span className="block text-[14.5px] font-bold text-ink">Categories</span>
+                <span className="block text-[12px] text-mute">Expense and revenue categories, subcategories, order</span>
+              </span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden style={{ color: "var(--mute)" }}>
+                <path d="M9 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </Link>
+          </Card>
 
           <div className="mt-5">
             <SectionLabel>Promoter</SectionLabel>
