@@ -1,10 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { getDriveConfig } from "@/lib/setlup/drive-config.functions";
-import { pickFromDrive } from "@/lib/setlup/drive";
-import { useSetlup } from "@/lib/setlup/store";
+import { type ReactNode } from "react";
 
 /**
- * The three ways a document gets into SETLUP.
+ * The two ways a document gets into SETLUP.
  *
  * Both file inputs are real, mounted inputs wrapped in a <label>, so the tap
  * is the browser's own gesture on the input — no programmatic .click(), which
@@ -63,45 +60,12 @@ export function FileSource({
   multiple?: boolean;
   note?: string;
 }) {
-  const { showToast } = useSetlup();
-  const [drive, setDrive] = useState<{ configured: boolean } | null>(null);
-  const [driveBusy, setDriveBusy] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    void getDriveConfig()
-      .then((c) => alive && setDrive(c))
-      .catch(() => alive && setDrive({ configured: false }));
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   const take = (list: FileList | null, el: HTMLInputElement) => {
     const files = list ? Array.from(list) : [];
     el.value = "";
     if (files.length) onFiles(files);
   };
-
-  async function fromDrive() {
-    setDriveBusy("Opening Google Drive…");
-    try {
-      const cfg = await getDriveConfig();
-      if (!cfg.configured) {
-        showToast("Google Drive isn’t set up yet");
-        setDriveBusy(null);
-        return;
-      }
-      const files = await pickFromDrive(cfg.clientId, cfg.apiKey, (done, total) =>
-        setDriveBusy(total ? `Downloading ${Math.min(done + 1, total)} of ${total}…` : "Downloading…"),
-      );
-      setDriveBusy(null);
-      if (files.length) onFiles(files);
-    } catch (e) {
-      setDriveBusy(null);
-      showToast(e instanceof Error ? e.message : "Google Drive failed");
-    }
-  }
 
   return (
     <div className="space-y-2">
@@ -124,19 +88,6 @@ export function FileSource({
           onChange={(e) => take(e.target.files, e.target)}
         />
       </SourceRow>
-
-      <SourceRow
-        label={drive && !drive.configured ? "Connect Google Drive (setup needed)" : "Choose from Google Drive"}
-        sub={driveBusy ?? (drive && !drive.configured ? "Add the Google keys in Settings first" : "Pick PDFs or images from Drive")}
-        onClick={() => {
-          if (drive && !drive.configured) {
-            showToast("Google Drive isn’t set up yet");
-            return;
-          }
-          void fromDrive();
-        }}
-        disabled={!!driveBusy}
-      />
 
       {note && <p className="pt-1 text-[12px] text-mute">{note}</p>}
     </div>

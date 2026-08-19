@@ -21,7 +21,6 @@ import {
   storagePrefix,
   type Promoter,
 } from "./cloud";
-import { importUv2024Bills, type ImportResult } from "./import-bills";
 import {
   BRAND_ACCENT,
   type Bill,
@@ -125,7 +124,6 @@ interface StoreValue {
   setUsername: (username: string) => Promise<boolean>;
   resetToSeed: () => Promise<void>;
 
-  importUv2024: (onProgress?: (done: number, total: number) => void) => Promise<ImportResult>;
   setFileStoragePath: (fileId: string, storagePath: string, type?: FileRecord["type"]) => void;
   setLineVatExcluded: (lineId: string, excluded: boolean) => void;
   routeFile: (fileId: string, categoryId: string, subcategoryId?: string) => Promise<void>;
@@ -460,14 +458,6 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
         } finally {
           setLoading(false);
         }
-      },
-      importUv2024: async (onProgress) => {
-        const uid2 = uidOrThrow();
-        const p = promoterOrThrow();
-        const result = await importUv2024Bills(p.id, uid2, db, onProgress);
-        const next = await loadDb(p);
-        setDb(next);
-        return result;
       },
       signOut: async () => {
         await supabase.auth.signOut();
