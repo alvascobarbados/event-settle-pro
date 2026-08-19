@@ -224,4 +224,28 @@ function Cell({ label, value }: { label: string; value: number }) {
   );
 }
 
-export type { EventRecord };
+function Step({ done, label, meta }: { done: boolean; label: string; meta: string }) {
+  return (
+    <div className="dashed-row flex items-center gap-3 px-4 py-3.5">
+      <span
+        className="grid h-6 w-6 shrink-0 place-items-center rounded-full"
+        style={{
+          backgroundColor: done ? "var(--green-bg)" : "var(--closed-bg)",
+          color: done ? "var(--green-fg)" : "var(--mute)",
+        }}
+      >
+        {done ? (
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : (
+          <span className="h-[6px] w-[6px] rounded-full" style={{ backgroundColor: "currentColor" }} />
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-semibold text-ink">{label}</span>
+        <span className="num block text-[11.5px] text-mute">{meta}</span>
+      </span>
+    </div>
+  );
+}
