@@ -15,8 +15,8 @@ interface PdfPageLike {
 
 async function loadPdfjs() {
   const [lib, worker] = await Promise.all([
-    import("pdfjs-dist"),
-    import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+    import("pdfjs-dist/legacy/build/pdf.mjs"),
+    import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url"),
   ]);
   lib.GlobalWorkerOptions.workerSrc = worker.default;
   return lib;
