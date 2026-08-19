@@ -158,6 +158,51 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       userEmail,
       authReady,
       loading,
+      setFileStoragePath: (fileId, storagePath, type) => {
+        setDb((d) => ({
+          ...d,
+          files: d.files.map((f) =>
+            f.id === fileId ? { ...f, storagePath, type: type ?? f.type } : f,
+          ),
+        }));
+        void supabase
+          .from("files")
+          .update({ storage_path: storagePath, ...(type ? { type } : {}) } as never)
+          .eq("id", fileId)
+          .then(({ error }) => error && fail(error));
+      },
+      resetToSeed: async () => {
+        const id = uidOrThrow();
+        setLoading(true);
+        try {
+          const list = await supabase.storage.from("setlup-files").list(id, { limit: 1000 });
+          const paths: string[] = [];
+          for (const entry of list.data ?? []) {
+            if (entry.id) {
+              paths.push(`${id}/${entry.name}`);
+              continue;
+            }
+            const sub = await supabase.storage
+              .from("setlup-files")
+              .list(`${id}/${entry.name}`, { limit: 1000 });
+            for (const f of sub.data ?? []) paths.push(`${id}/${entry.name}/${f.name}`);
+          }
+          if (paths.length > 0) await supabase.storage.from("setlup-files").remove(paths);
+
+          for (const table of ["payments", "money_in", "bills", "files", "lines", "events"] as const) {
+            const { error } = await supabase.from(table).delete().eq("user_id", id);
+            if (error) throw error;
+          }
+          const next = await seedForUser(id);
+          setDb(next);
+          showToast("Data reset to seed");
+        } catch (e) {
+          console.error(e);
+          showToast("Reset failed");
+        } finally {
+          setLoading(false);
+        }
+      },
       signOut: async () => {
         await supabase.auth.signOut();
         setDb(EMPTY_DB);
