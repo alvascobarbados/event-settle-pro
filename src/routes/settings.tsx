@@ -18,7 +18,7 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
-  const { db, updateSettings, showToast } = useSetlup();
+  const { db, updateSettings, showToast, userEmail, signOut } = useSetlup();
   const [business, setBusiness] = useState(db.settings.business);
   const [currency, setCurrency] = useState(db.settings.currency);
 
@@ -69,7 +69,27 @@ function SettingsPage() {
             VAT within for the return.
           </FinePrint>
 
-          <div className="mt-6 text-[11.5px] text-mute">SETLUP v1.0 · {db.events.length} events on this device</div>
+          <div className="mt-6">
+            <SectionLabel>Account</SectionLabel>
+          </div>
+          <Card className="mt-2 overflow-hidden">
+            <div className="dashed-row flex items-baseline justify-between px-4 py-3.5">
+              <span className="text-[14px] font-semibold text-ink">Signed in as</span>
+              <span className="text-[13px] font-semibold text-mute">{userEmail ?? "—"}</span>
+            </div>
+            <div className="px-4 py-3.5">
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                className="text-[13px] font-bold uppercase tracking-[0.06em]"
+                style={{ color: "var(--accent-c)" }}
+              >
+                Sign out
+              </button>
+            </div>
+          </Card>
+
+          <div className="mt-6 text-[11.5px] text-mute">SETLUP v1.0 · {db.events.length} events synced to your account</div>
         </div>
       </PageScroll>
     </>

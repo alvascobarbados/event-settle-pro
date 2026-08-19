@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { ScrollTop } from "@/components/setlup/Shell";
 import { Card, Chip, EmptyState, PillGroup, SectionLabel } from "@/components/setlup/ui";
 import { lineName } from "@/lib/setlup/compute";
 import { fmtDate, money } from "@/lib/setlup/format";
 import { useSetlup } from "@/lib/setlup/store";
+import type { FileRecord } from "@/lib/setlup/types";
 
 export const Route = createFileRoute("/event/$id/files")({
   head: () => ({
@@ -55,28 +57,65 @@ function Files() {
         {files.length === 0 ? (
           <EmptyState title="No files here" body="Attach an invoice or receipt with the + button and link it to a P&L line." />
         ) : (
-          files.map((f) => (
-            <div key={f.id} className="dashed-row flex items-start gap-3 px-4 py-3.5">
-              <span
-                className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-[9px] text-[9px] font-extrabold"
-                style={{ backgroundColor: "var(--accent-tint-c)", color: "var(--accent-deep-c)" }}
-              >
-                {f.type}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-semibold text-ink">{f.name}</span>
-                <span className="block text-[11.5px] text-mute">{fmtDate(f.date)}</span>
-                <span className="mt-1.5 block">
-                  <Chip tone={f.lineId ? "green" : "neutral"}>{lineName(db, f.lineId) ?? "Unlinked"}</Chip>
-                </span>
-              </span>
-              {f.amount !== undefined && (
-                <span className="num shrink-0 text-[13.5px] font-bold text-ink">{money(f.amount)}</span>
-              )}
-            </div>
-          ))
+          files.map((f) => <FileRow key={f.id} file={f} />)
         )}
       </Card>
     </div>
+  );
+}
+
+function FileRow({ file: f }: { file: FileRecord }) {
+  const { db, showToast } = useSetlup();
+  const [busy, setBusy] = useState(false);
+
+  async function open() {
+    if (!f.storagePath || busy) return;
+    setBusy(true);
+    const { data, error } = await supabase.storage
+      .from("setlup-files")
+      .createSignedUrl(f.storagePath, 60 * 10);
+    setBusy(false);
+    if (error || !data) {
+      showToast("Could not open file");
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener");
+  }
+
+  const body = (
+    <>
+      <span
+        className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-[9px] text-[9px] font-extrabold"
+        style={{ backgroundColor: "var(--accent-tint-c)", color: "var(--accent-deep-c)" }}
+      >
+        {f.type}
+      </span>
+      <span className="min-w-0 flex-1 text-left">
+        <span className="block text-[14px] font-semibold text-ink">{f.name}</span>
+        <span className="block text-[11.5px] text-mute">
+          {fmtDate(f.date)}
+          {f.storagePath ? (busy ? " · opening…" : " · tap to view") : ""}
+        </span>
+        <span className="mt-1.5 block">
+          <Chip tone={f.lineId ? "green" : "neutral"}>{lineName(db, f.lineId) ?? "Unlinked"}</Chip>
+        </span>
+      </span>
+      {f.amount !== undefined && (
+        <span className="num shrink-0 text-[13.5px] font-bold text-ink">{money(f.amount)}</span>
+      )}
+    </>
+  );
+
+  if (!f.storagePath) {
+    return <div className="dashed-row flex items-start gap-3 px-4 py-3.5">{body}</div>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={open}
+      className="dashed-row flex w-full items-start gap-3 px-4 py-3.5 text-left active:opacity-70"
+    >
+      {body}
+    </button>
   );
 }

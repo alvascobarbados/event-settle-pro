@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SetlupProvider } from "@/lib/setlup/store";
 import { AppFrame } from "@/components/setlup/Shell";
+import { AuthGate } from "@/components/setlup/AuthGate";
 
 function NotFoundComponent() {
   return (
@@ -127,11 +128,14 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <SetlupProvider>
-        <AppFrame>
-          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <Outlet />
-        </AppFrame>
+        <AuthGate>
+          <AppFrame>
+            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+            <Outlet />
+          </AppFrame>
+        </AuthGate>
       </SetlupProvider>
     </QueryClientProvider>
+
   );
 }

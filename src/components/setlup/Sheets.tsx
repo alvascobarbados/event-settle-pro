@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { useSetlup } from "@/lib/setlup/store";
 import { balanceOf } from "@/lib/setlup/compute";
 import { money, todayIso } from "@/lib/setlup/format";
@@ -202,7 +203,7 @@ export function ActionSheet({
   open: boolean;
   onClose: () => void;
 }) {
-  const { db, addBill, addMoneyIn, addBudgetLine, addFile, showToast } = useSetlup();
+  const { db, addBill, addMoneyIn, addBudgetLine, addFile, showToast, userId } = useSetlup();
   const [mode, setMode] = useState<Mode>("menu");
 
   const [counterparty, setCounterparty] = useState("");
@@ -214,6 +215,8 @@ export function ActionSheet({
   const [section, setSection] = useState<Section>("expenses");
   const [name, setName] = useState("");
   const [fileType, setFileType] = useState<"PDF" | "IMG">("PDF");
+  const [picked, setPicked] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const reset = () => {
     setCounterparty("");
@@ -361,6 +364,21 @@ export function ActionSheet({
 
       {mode === "file" && (
         <>
+          <Field label="Choose file">
+            <input
+              type="file"
+              accept="application/pdf,image/*"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                setPicked(f);
+                if (f) {
+                  if (!name.trim()) setName(f.name.replace(/\.[^.]+$/, ""));
+                  setFileType(f.type.startsWith("image/") ? "IMG" : "PDF");
+                }
+              }}
+              className="w-full text-[13px] text-ink"
+            />
+          </Field>
           <Field label="File name">
             <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Security invoice" />
           </Field>
@@ -381,8 +399,23 @@ export function ActionSheet({
           </Field>
           <div className="mt-5">
             <PrimaryButton
-              onClick={() => {
-                if (!name.trim()) return;
+              onClick={async () => {
+                if (!name.trim() || uploading) return;
+                let storagePath: string | undefined;
+                if (picked && userId) {
+                  setUploading(true);
+                  const safe = picked.name.replace(/[^\w.\-]+/g, "_");
+                  const path = `${userId}/${eventId}/${Date.now()}-${safe}`;
+                  const { error } = await supabase.storage
+                    .from("setlup-files")
+                    .upload(path, picked, { contentType: picked.type || undefined });
+                  setUploading(false);
+                  if (error) {
+                    showToast("Upload failed");
+                    return;
+                  }
+                  storagePath = path;
+                }
                 addFile({
                   eventId,
                   name: name.trim(),
@@ -390,16 +423,19 @@ export function ActionSheet({
                   date: todayIso(),
                   lineId: lineId || undefined,
                   amount: Number(amount) || undefined,
+                  storagePath,
                 });
+                setPicked(null);
                 showToast("File attached");
                 close();
               }}
             >
-              Attach
+              {uploading ? "Uploading…" : "Attach"}
             </PrimaryButton>
           </div>
         </>
       )}
+
     </Sheet>
   );
 }
