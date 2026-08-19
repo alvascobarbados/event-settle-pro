@@ -83,7 +83,7 @@ function Reports() {
         ]}
       />
 
-      {tab === "pnl" && (
+      {activeTab === "pnl" && (
         <>
           <div className="mt-4 flex items-center justify-between">
             <SectionLabel>{pnl.budgeted ? "Budgeted P&L" : "Actual P&L"}</SectionLabel>
@@ -116,7 +116,7 @@ function Reports() {
         </>
       )}
 
-      {tab === "budget" && (
+      {activeTab === "budget" && (
         <>
           <div className="mt-4">
             <SectionLabel>Budget vs actual</SectionLabel>
@@ -155,7 +155,7 @@ function Reports() {
         </>
       )}
 
-      {tab === "vat" && (
+      {activeTab === "vat" && (
         <>
           <div className="mt-4">
             <SectionLabel>VAT return · 17.5% inclusive</SectionLabel>
@@ -176,7 +176,7 @@ function Reports() {
         </>
       )}
 
-      {tab === "cash" && (
+      {activeTab === "cash" && (
         <>
           <div className="mt-4">
             <SectionLabel>Cash reconciliation</SectionLabel>
