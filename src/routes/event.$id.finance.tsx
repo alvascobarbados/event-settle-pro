@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ScrollTop } from "@/components/setlup/Shell";
 import { PaymentSheet } from "@/components/setlup/Sheets";
+import { EditBillSheet } from "@/components/setlup/ScanBill";
+import { PullToRefresh, SwipeRow } from "@/components/setlup/SwipeRow";
 import { Card, Chip, EmptyState, PillGroup, SectionLabel, StatusChip } from "@/components/setlup/ui";
 import {
   activityOf,
@@ -34,8 +36,9 @@ type Tab = "collect" | "pay" | "activity";
 
 function Finance() {
   const { id } = Route.useParams();
-  const { db, getEvent } = useSetlup();
+  const { db, getEvent, deleteBill, deleteMoneyIn, refresh } = useSetlup();
   const event = getEvent(id);
+  const [editBillId, setEditBillId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("collect");
   const [sheet, setSheet] = useState<{ record: Ledgerable; kind: "in" | "out" } | null>(null);
   if (!event) return null;
@@ -46,6 +49,7 @@ function Finance() {
   const activity = activityOf(db, event.id);
 
   return (
+    <PullToRefresh onRefresh={refresh}>
     <div className="px-4 pb-10 pt-4">
       <ScrollTop />
       <PillGroup<Tab>
@@ -73,13 +77,20 @@ function Finance() {
             <EmptyState title="No money in yet" body="Add sponsorship, ticket payouts or table sales with the + button." />
           ) : (
             moneyIn.map((r) => (
-              <RecordRow
+              <SwipeRow
                 key={r.id}
-                record={r}
-                asOf={event.asOf}
-                lineLabel={lineName(db, r.lineId)}
-                onClick={locked ? undefined : () => setSheet({ record: r, kind: "in" })}
-              />
+                disabled={locked}
+                confirmTitle="Delete this receivable?"
+                confirmBody="Its payments go too. Any attached document stays, unlinked."
+                onDelete={() => deleteMoneyIn(r.id)}
+              >
+                <RecordRow
+                  record={r}
+                  asOf={event.asOf}
+                  lineLabel={lineName(db, r.lineId)}
+                  onClick={locked ? undefined : () => setSheet({ record: r, kind: "in" })}
+                />
+              </SwipeRow>
             ))
           )}
         </Card>
@@ -91,13 +102,21 @@ function Finance() {
             <EmptyState title="No bills yet" body="Add a vendor bill with the + button to start tracking what you owe." />
           ) : (
             bills.map((r) => (
-              <RecordRow
+              <SwipeRow
                 key={r.id}
-                record={r}
-                asOf={event.asOf}
-                lineLabel={lineName(db, r.lineId)}
-                onClick={locked ? undefined : () => setSheet({ record: r, kind: "out" })}
-              />
+                disabled={locked}
+                confirmTitle="Delete this bill?"
+                confirmBody="Its payments go too. Any attached document stays, unlinked."
+                onDelete={() => deleteBill(r.id)}
+              >
+                <RecordRow
+                  record={r}
+                  asOf={event.asOf}
+                  lineLabel={lineName(db, r.lineId)}
+                  onClick={locked ? undefined : () => setSheet({ record: r, kind: "out" })}
+                  onEdit={locked ? undefined : () => setEditBillId(r.id)}
+                />
+              </SwipeRow>
             ))
           )}
         </Card>
@@ -138,7 +157,14 @@ function Finance() {
       )}
 
       <PaymentSheet record={sheet?.record ?? null} kind={sheet?.kind ?? "in"} onClose={() => setSheet(null)} />
+
+      <EditBillSheet
+        bill={editBillId ? db.bills.find((b) => b.id === editBillId) : undefined}
+        open={!!editBillId}
+        onClose={() => setEditBillId(null)}
+      />
     </div>
+    </PullToRefresh>
   );
 }
 
@@ -147,11 +173,13 @@ function RecordRow({
   asOf,
   lineLabel,
   onClick,
+  onEdit,
 }: {
   record: Ledgerable;
   asOf: string;
   lineLabel: string | null;
   onClick?: () => void;
+  onEdit?: () => void;
 }) {
   const status = statusOf(record, asOf);
   const balance = balanceOf(record);
@@ -168,6 +196,19 @@ function RecordRow({
         <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <StatusChip status={status} />
           <Chip tone="neutral">due {fmtDateShort(record.dueDate)}</Chip>
+          {onEdit && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              className="text-[11px] font-extrabold uppercase tracking-[0.06em]"
+              style={{ color: "var(--accent-c)" }}
+            >
+              Edit
+            </button>
+          )}
         </span>
       </span>
       <span className="shrink-0 text-right">
