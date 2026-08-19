@@ -41,6 +41,10 @@ function Reports() {
   const budget = budgetReportOf(db, event);
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }));
 
+  const showBudget = !!event.budgetBaseline && event.stage === "reconciling";
+  const showCash = event.stage === "reconciling";
+  const activeTab: Tab = (tab === "budget" && !showBudget) || (tab === "cash" && !showCash) ? "pnl" : tab;
+
   const renderSection = (title: string, sec: SectionResult, totalLabel: string) => (
     <>
       <SectionHeader title={title} />
@@ -69,17 +73,17 @@ function Reports() {
     <div className="px-4 pb-10 pt-4">
       <ScrollTop />
       <PillGroup<Tab>
-        value={tab}
+        value={activeTab}
         onChange={setTab}
         options={[
-          { value: "pnl", label: "P&L" },
-          { value: "budget", label: "Budget" },
-          { value: "vat", label: "VAT" },
-          { value: "cash", label: "Cash" },
+          { value: "pnl" as Tab, label: "P&L" },
+          ...(showBudget ? [{ value: "budget" as Tab, label: "Budget" }] : []),
+          { value: "vat" as Tab, label: "VAT" },
+          ...(showCash ? [{ value: "cash" as Tab, label: "Cash" }] : []),
         ]}
       />
 
-      {tab === "pnl" && (
+      {activeTab === "pnl" && (
         <>
           <div className="mt-4 flex items-center justify-between">
             <SectionLabel>{pnl.budgeted ? "Budgeted P&L" : "Actual P&L"}</SectionLabel>
@@ -112,7 +116,7 @@ function Reports() {
         </>
       )}
 
-      {tab === "budget" && (
+      {activeTab === "budget" && (
         <>
           <div className="mt-4">
             <SectionLabel>Budget vs actual</SectionLabel>
@@ -151,7 +155,7 @@ function Reports() {
         </>
       )}
 
-      {tab === "vat" && (
+      {activeTab === "vat" && (
         <>
           <div className="mt-4">
             <SectionLabel>VAT return · 17.5% inclusive</SectionLabel>
@@ -172,7 +176,7 @@ function Reports() {
         </>
       )}
 
-      {tab === "cash" && (
+      {activeTab === "cash" && (
         <>
           <div className="mt-4">
             <SectionLabel>Cash reconciliation</SectionLabel>

@@ -104,7 +104,10 @@ export function pnlOf(db: Db, event: EventRecord): Pnl {
   const grossProfit = Math.round((revenue.amount - cos.amount) * 100) / 100;
   const profitBeforeTax = Math.round((grossProfit - expenses.amount) * 100) / 100;
   const outputVat = revenue.vat;
-  const inputVat = Math.round((cos.vat + expenses.vat) * 100) / 100;
+  const inputVat =
+    event.inputVatOverride !== undefined
+      ? round2(event.inputVatOverride)
+      : Math.round((cos.vat + expenses.vat) * 100) / 100;
   return {
     budgeted,
     revenue,
@@ -176,7 +179,10 @@ export function cashOf(db: Db, event: EventRecord) {
   const pnl = pnlOf(db, event);
   const remainingIn = toCollect(db, event);
   const remainingOut = toPay(db, event);
-  const fullySettled = round2(position + remainingIn - remainingOut - pnl.netVat);
+  // On a closed event the VAT has already been remitted in cash, so
+  // subtracting it again would double-count it.
+  const vatStillDue = event.stage === "closed" ? 0 : pnl.netVat;
+  const fullySettled = round2(position + remainingIn - remainingOut - vatStillDue);
   return { collected, paid, position, remainingIn, remainingOut, netVat: pnl.netVat, fullySettled };
 }
 

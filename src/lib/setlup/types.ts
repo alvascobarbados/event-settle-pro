@@ -31,6 +31,8 @@ export interface EventRecord {
   budgetBaseline?: { revenue: number; cos: number; expenses: number };
   /** Historical cash not itemised in the activity feed. */
   cashBaseline?: { collected: number; paid: number };
+  /** Real bill-level input VAT, used until bills are itemised in the app. */
+  inputVatOverride?: number;
   vatExported?: boolean;
   vatFiledDate?: string;
   planningRows?: { name: string; meta: string; state: "done" | "progress" | "open" }[];
