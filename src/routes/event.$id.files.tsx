@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ScrollTop } from "@/components/setlup/Shell";
 import { BillPeek } from "@/components/setlup/BillPeek";
 import { RouteSheet } from "@/components/setlup/Sheets";
+import { ScanBillSheet } from "@/components/setlup/ScanBill";
 import { Card, Chip, EmptyState, PillGroup, PrimaryButton, SectionLabel } from "@/components/setlup/ui";
 import { CategoryRouter, Sheet } from "@/components/setlup/Sheets";
 import { categoryLabel } from "@/lib/setlup/compute";
@@ -32,6 +33,7 @@ function Files() {
   const [filter, setFilter] = useState<Filter>("all");
   const [peekId, setPeekId] = useState<string | null>(null);
   const [routeFileId, setRouteFileId] = useState<string | null>(null);
+  const [scanFileId, setScanFileId] = useState<string | null>(null);
   const peekFile = peekId ? db.files.find((f) => f.id === peekId) : undefined;
   if (!event) return null;
 
@@ -64,12 +66,24 @@ function Files() {
           <EmptyState title="No files here" body="Attach an invoice or receipt with the + button and link it to a P&L line." />
         ) : (
           files.map((f) => (
-            <FileRow key={f.id} file={f} onOpen={() => setPeekId(f.id)} onRoute={() => setRouteFileId(f.id)} />
+            <FileRow
+              key={f.id}
+              file={f}
+              onOpen={() => setPeekId(f.id)}
+              onRoute={() => setRouteFileId(f.id)}
+              onScan={() => setScanFileId(f.id)}
+            />
           ))
         )}
       </Card>
 
       <FileRouteSheet fileId={routeFileId} onClose={() => setRouteFileId(null)} />
+
+      <ScanBillSheet
+        file={scanFileId ? db.files.find((f) => f.id === scanFileId) : undefined}
+        open={!!scanFileId}
+        onClose={() => setScanFileId(null)}
+      />
 
       <BillPeek
         target={
@@ -143,7 +157,17 @@ function UnlinkedRouteSheet({
   );
 }
 
-function FileRow({ file: f, onOpen, onRoute }: { file: FileRecord; onOpen: () => void; onRoute: () => void }) {
+function FileRow({
+  file: f,
+  onOpen,
+  onRoute,
+  onScan,
+}: {
+  file: FileRecord;
+  onOpen: () => void;
+  onRoute: () => void;
+  onScan: () => void;
+}) {
   const { db, showToast, promoterId, setFileStoragePath } = useSetlup();
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -193,6 +217,17 @@ function FileRow({ file: f, onOpen, onRoute }: { file: FileRecord; onOpen: () =>
     </>
   );
 
+  const scanBtn = f.storagePath && !f.lineId ? (
+    <button
+      type="button"
+      onClick={onScan}
+      className="shrink-0 self-center text-[11.5px] font-extrabold uppercase tracking-[0.06em]"
+      style={{ color: "var(--accent-c)" }}
+    >
+      Scan
+    </button>
+  ) : null;
+
   const routeBtn = (
     <button
       type="button"
@@ -236,6 +271,7 @@ function FileRow({ file: f, onOpen, onRoute }: { file: FileRecord; onOpen: () =>
       <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-start gap-3 text-left active:opacity-70">
         {body}
       </button>
+      {scanBtn}
       {routeBtn}
     </div>
   );

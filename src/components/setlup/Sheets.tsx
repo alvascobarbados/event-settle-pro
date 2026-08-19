@@ -4,7 +4,8 @@ import { useSetlup } from "@/lib/setlup/store";
 import { balanceOf } from "@/lib/setlup/compute";
 import { money, todayIso } from "@/lib/setlup/format";
 import type { Ledgerable, Section } from "@/lib/setlup/types";
-import { PrimaryButton } from "./ui";
+import { PillGroup, PrimaryButton } from "./ui";
+import { ScanBillPanel } from "./ScanBill";
 
 /* ---------------- generic bottom sheet ---------------- */
 
