@@ -210,7 +210,7 @@ function Reports() {
             <Milestone
               label="Variance to budget"
               amount={budget.variance}
-              sub={`Actual profit ${money(budget.actualProfit)}`}
+              sub={`Profit before VAT ${money(budget.actualProfit)}`}
               hero
             />
           </Card>
