@@ -6,6 +6,7 @@ import { PrimaryButton, SectionLabel, StageBadge } from "@/components/setlup/ui"
 import { pnlOf, toCollect, toPay } from "@/lib/setlup/compute";
 import { fmtDate, money, todayIso } from "@/lib/setlup/format";
 import { useSetlup } from "@/lib/setlup/store";
+import { PullToRefresh } from "@/components/setlup/SwipeRow";
 import type { EventRecord } from "@/lib/setlup/types";
 
 export const Route = createFileRoute("/")({
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Lobby() {
-  const { db, addEvent, showToast } = useSetlup();
+  const { db, addEvent, showToast, refresh } = useSetlup();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -33,6 +34,7 @@ function Lobby() {
     <>
       <AppBar />
       <PageScroll>
+        <PullToRefresh onRefresh={refresh}>
         <div className="px-4 pb-10 pt-5">
           <h1 className="wide-116 text-[26px] font-black uppercase leading-none text-ink">Events</h1>
           <p className="mt-1.5 text-[12.5px] text-mute">

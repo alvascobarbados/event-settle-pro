@@ -121,13 +121,22 @@ export function PullToRefresh({ onRefresh, children }: { onRefresh: () => Promis
   const [busy, setBusy] = useState(false);
   const startY = useRef<number | null>(null);
 
+  const wrap = useRef<HTMLDivElement>(null);
+
+  /** True when the nearest scrolling ancestor is already at the top. */
   const atTop = () => {
-    const el = document.scrollingElement ?? document.documentElement;
-    return el.scrollTop <= 0;
+    let el: HTMLElement | null = wrap.current;
+    while (el) {
+      const style = getComputedStyle(el);
+      if (/(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight) return el.scrollTop <= 0;
+      el = el.parentElement;
+    }
+    return (document.scrollingElement ?? document.documentElement).scrollTop <= 0;
   };
 
   return (
     <div
+      ref={wrap}
       onTouchStart={(e) => {
         startY.current = atTop() ? (e.touches[0]?.clientY ?? null) : null;
       }}
