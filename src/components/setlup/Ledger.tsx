@@ -94,8 +94,28 @@ export function LedgerRow({
       >
         {money(amount)}
       </span>
-      <span className={`num text-right text-[11px] text-vat ${child ? "py-2" : "py-2.5"}`}>
-        {vat === undefined ? "" : vat === 0 ? "—" : money(vat)}
+      <span
+        className={`num flex items-baseline justify-end gap-1 text-right text-[11px] text-vat ${child ? "py-2" : "py-2.5"}`}
+      >
+        <span>{vat === undefined ? "" : vat === 0 ? "—" : money(vat)}</span>
+        {hasFile && (
+          <svg
+            width="11"
+            height="11"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden
+            className="shrink-0 self-center"
+            style={{ color: "var(--accent-c)" }}
+          >
+            <path
+              d="M20.5 11.5l-8 8a5 5 0 01-7-7l8.5-8.5a3.2 3.2 0 014.5 4.5l-8.5 8.5a1.5 1.5 0 01-2-2l7.5-7.5"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
       </span>
     </div>
   );
@@ -111,6 +131,13 @@ export function LedgerRow({
   if (expandable) {
     return (
       <button type="button" onClick={onToggle} className="dashed-row block w-full text-left active:bg-app">
+        {inner}
+      </button>
+    );
+  }
+  if (onSelect) {
+    return (
+      <button type="button" onClick={onSelect} className="dashed-row block w-full text-left active:bg-app">
         {inner}
       </button>
     );
