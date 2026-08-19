@@ -111,6 +111,7 @@ interface StoreValue {
 
   importUv2024: (onProgress?: (done: number, total: number) => void) => Promise<ImportResult>;
   setFileStoragePath: (fileId: string, storagePath: string, type?: FileRecord["type"]) => void;
+  setLineVatExcluded: (lineId: string, excluded: boolean) => void;
   routeFile: (fileId: string, categoryId: string, subcategoryId?: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -354,6 +355,18 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
         setPromoter({ ...p, username: value || undefined });
         showToast("Username saved");
         return true;
+      },
+
+      setLineVatExcluded: (lineId, excluded) => {
+        setDb((d) => ({
+          ...d,
+          lines: d.lines.map((l) => (l.id === lineId ? { ...l, vatExcluded: excluded } : l)),
+        }));
+        void supabase
+          .from("lines")
+          .update({ vat_excluded: excluded } as never)
+          .eq("id", lineId)
+          .then(({ error }) => error && fail(error));
       },
 
       routeFile: async (fileId, categoryId, subcategoryId) => {

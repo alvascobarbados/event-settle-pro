@@ -88,6 +88,7 @@ function rowToLine(r: Row): Line {
     ref: os(r["ref"]),
     parentId: os(r["parent_id"]),
     categoryId: os(r["category_id"]),
+    vatExcluded: Boolean(r["vat_excluded"]),
   };
 }
 
@@ -106,6 +107,7 @@ export function lineToRow(l: Line): Row {
     ref: l.ref ?? null,
     parent_id: l.parentId ?? null,
     category_id: l.categoryId ?? null,
+    vat_excluded: l.vatExcluded ?? false,
   };
 }
 
