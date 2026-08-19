@@ -30,7 +30,10 @@ export interface Promoter {
   name: string;
   currency: string;
   vatRate: number;
+  username?: string;
+  code: string;
 }
+
 
 function rowToEvent(r: Row): EventRecord {
   return {
@@ -171,8 +174,11 @@ export async function ensurePromoter(): Promise<Promoter> {
     name: String(r["name"] ?? ""),
     currency: String(r["currency"] ?? "BBD"),
     vatRate: n(r["vat_rate"] ?? 17.5),
+    username: os(r["username"]),
+    code: String(r["code"] ?? ""),
   };
 }
+
 
 /** Storage prefix for a promoter's event documents. */
 export const storagePrefix = (promoterId: string, eventId: string) => `${promoterId}/${eventId}`;
