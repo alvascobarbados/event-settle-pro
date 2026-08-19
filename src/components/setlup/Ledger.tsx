@@ -36,6 +36,7 @@ export function SectionHeader({ title, right }: { title: string; right?: ReactNo
 
 export function LedgerRow({
   label,
+  detail,
   sub,
   amount,
   vat,
@@ -43,9 +44,9 @@ export function LedgerRow({
   expandable,
   open,
   onToggle,
-  chip,
 }: {
   label: string;
+  detail?: string;
   sub?: string;
   amount: number;
   vat?: number;
@@ -53,11 +54,13 @@ export function LedgerRow({
   expandable?: boolean;
   open?: boolean;
   onToggle?: () => void;
-  chip?: ReactNode;
 }) {
   const inner = (
-    <div className={`${GRID} px-4`} style={{ minHeight: child ? 40 : 46 }}>
-      <span className="flex min-w-0 items-center gap-1.5 py-2.5">
+    <div
+      className={`grid grid-cols-[minmax(0,1fr)_auto_56px] gap-2 px-4 ${child ? "items-start" : "items-baseline"}`}
+      style={{ minHeight: child ? 40 : 46 }}
+    >
+      <span className={`flex min-w-0 gap-1.5 ${child ? "items-start py-2" : "items-baseline py-2.5"}`}>
         {expandable && (
           <svg
             width="12"
@@ -65,25 +68,29 @@ export function LedgerRow({
             viewBox="0 0 24 24"
             fill="none"
             aria-hidden
-            className="shrink-0 transition-transform duration-150"
+            className="mt-[3px] shrink-0 transition-transform duration-150"
             style={{ color: "var(--mute)", transform: open ? "rotate(90deg)" : "none" }}
           >
             <path d="M9 5l7 7-7 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
           </svg>
         )}
-        <span
-          className={child ? "truncate text-[13px] text-mute" : "truncate text-[14.5px] font-semibold text-ink"}
-        >
-          {label}
-        </span>
-        {chip}
+        {child ? (
+          <span className="min-w-0">
+            <span className="block text-[13px] font-semibold leading-snug text-ink">{label}</span>
+            {detail && (
+              <span className="mt-0.5 block text-[11px] leading-snug text-mute">{detail}</span>
+            )}
+          </span>
+        ) : (
+          <span className="min-w-0 text-[14.5px] font-semibold leading-snug text-ink">{label}</span>
+        )}
       </span>
       <span
-        className={`num py-2.5 text-right ${child ? "text-[13px] text-mute" : "text-[14.5px] font-bold text-ink"}`}
+        className={`num text-right ${child ? "py-2 text-[13px] font-semibold text-ink" : "py-2.5 text-[14.5px] font-bold text-ink"}`}
       >
         {money(amount)}
       </span>
-      <span className="num py-2.5 text-right text-[11px] text-vat">
+      <span className={`num text-right text-[11px] text-vat ${child ? "py-2" : "py-2.5"}`}>
         {vat === undefined ? "" : vat === 0 ? "—" : money(vat)}
       </span>
     </div>

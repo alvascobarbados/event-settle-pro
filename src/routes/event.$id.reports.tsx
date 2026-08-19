@@ -41,10 +41,6 @@ function Reports() {
   const budget = budgetReportOf(db, event);
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }));
 
-  const showBudget = !!event.budgetBaseline && event.stage === "reconciling";
-  const showCash = event.stage === "reconciling";
-  const activeTab: Tab = (tab === "budget" && !showBudget) || (tab === "cash" && !showCash) ? "pnl" : tab;
-
   const renderSection = (title: string, sec: SectionResult, totalLabel: string) => (
     <>
       <SectionHeader title={title} />
@@ -57,11 +53,19 @@ function Reports() {
             expandable={r.children.length > 0}
             open={!!open[r.line.id]}
             onToggle={() => toggle(r.line.id)}
-            chip={r.line.vatExempt ? <Chip tone="neutral">no vat</Chip> : undefined}
           />
           {open[r.line.id] &&
             r.children.map((c) => (
-              <LedgerRow key={c.line.id} label={c.line.name} amount={c.amount} vat={c.vat} child />
+              <LedgerRow
+                key={c.line.id}
+                label={c.line.name}
+                detail={[c.line.detail, c.line.ref ? `inv ${c.line.ref}` : null]
+                  .filter(Boolean)
+                  .join(" · ")}
+                amount={c.amount}
+                vat={c.vat}
+                child
+              />
             ))}
         </div>
       ))}
@@ -73,17 +77,19 @@ function Reports() {
     <div className="px-4 pb-10 pt-4">
       <ScrollTop />
       <PillGroup<Tab>
-        value={activeTab}
+        value={tab}
         onChange={setTab}
         options={[
-          { value: "pnl" as Tab, label: "P&L" },
-          ...(showBudget ? [{ value: "budget" as Tab, label: "Budget" }] : []),
-          { value: "vat" as Tab, label: "VAT" },
-          ...(showCash ? [{ value: "cash" as Tab, label: "Cash" }] : []),
+          { value: "pnl", label: "P&L" },
+          ...(event.budgetBaseline && event.stage === "reconciling"
+            ? [{ value: "budget" as Tab, label: "Budget" }]
+            : []),
+          { value: "vat", label: "VAT" },
+          ...(event.stage === "reconciling" ? [{ value: "cash" as Tab, label: "Cash" }] : []),
         ]}
       />
 
-      {activeTab === "pnl" && (
+      {tab === "pnl" && (
         <>
           <div className="mt-4 flex items-center justify-between">
             <SectionLabel>{pnl.budgeted ? "Budgeted P&L" : "Actual P&L"}</SectionLabel>
@@ -116,7 +122,7 @@ function Reports() {
         </>
       )}
 
-      {activeTab === "budget" && (
+      {tab === "budget" && (
         <>
           <div className="mt-4">
             <SectionLabel>Budget vs actual</SectionLabel>
@@ -155,7 +161,7 @@ function Reports() {
         </>
       )}
 
-      {activeTab === "vat" && (
+      {tab === "vat" && (
         <>
           <div className="mt-4">
             <SectionLabel>VAT return · 17.5% inclusive</SectionLabel>
@@ -176,7 +182,7 @@ function Reports() {
         </>
       )}
 
-      {activeTab === "cash" && (
+      {tab === "cash" && (
         <>
           <div className="mt-4">
             <SectionLabel>Cash reconciliation</SectionLabel>
