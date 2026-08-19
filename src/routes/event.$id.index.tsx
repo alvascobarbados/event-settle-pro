@@ -10,7 +10,7 @@ import {
   toCollect,
   toPay,
 } from "@/lib/setlup/compute";
-import { fmtDate, money, pct, perHead } from "@/lib/setlup/format";
+import { fmtDate, fmtEventNumber, money, pct, perHead } from "@/lib/setlup/format";
 import { useSetlup } from "@/lib/setlup/store";
 
 export const Route = createFileRoute("/event/$id/")({
@@ -44,7 +44,7 @@ function EventHome() {
 
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 text-[12.5px] text-mute">
-          {event.eventNumber ? `№ ${event.eventNumber} · ` : ""}
+          {event.eventNumber ? `№ ${fmtEventNumber(event.eventNumber)} · ` : ""}
           {fmtDate(event.date)} · {event.venue}
           {event.headcount ? ` · ${event.headcount.toLocaleString()} in` : event.capacity ? ` · cap ${event.capacity.toLocaleString()}` : ""}
         </div>

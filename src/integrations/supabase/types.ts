@@ -375,24 +375,30 @@ export type Database = {
       }
       promoters: {
         Row: {
+          code: string
           created_at: string
           currency: string
           id: string
           name: string
+          username: string | null
           vat_rate: number
         }
         Insert: {
+          code: string
           created_at?: string
           currency?: string
           id?: string
           name?: string
+          username?: string | null
           vat_rate?: number
         }
         Update: {
+          code?: string
           created_at?: string
           currency?: string
           id?: string
           name?: string
+          username?: string | null
           vat_rate?: number
         }
         Relationships: []
@@ -446,10 +452,12 @@ export type Database = {
       ensure_promoter: {
         Args: never
         Returns: {
+          code: string
           created_at: string
           currency: string
           id: string
           name: string
+          username: string | null
           vat_rate: number
         }
         SetofOptions: {
@@ -459,6 +467,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      generate_promoter_code: { Args: { _name: string }; Returns: string }
       user_can_access_event: { Args: { _event_id: string }; Returns: boolean }
       user_promoter_ids: { Args: never; Returns: string[] }
     }

@@ -19,16 +19,31 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
-  const { db, updateSettings, showToast, userEmail, signOut, resetToSeed, importUv2024, userId } = useSetlup();
+  const {
+    db,
+    updateSettings,
+    showToast,
+    userEmail,
+    signOut,
+    resetToSeed,
+    importUv2024,
+    userId,
+    promoterCode,
+    promoterUsername,
+    setUsername,
+  } = useSetlup();
   const [business, setBusiness] = useState(db.settings.business);
   const [currency, setCurrency] = useState(db.settings.currency);
+  const [username, setUsernameInput] = useState(promoterUsername ?? "");
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [manifestReady, setManifestReady] = useState(false);
   const [importing, setImporting] = useState<string | null>(null);
 
+  const isVerifiedSeedPromoter = promoterCode === "1949AL";
   const uv24Files = userId ? db.files.filter((f) => f.eventId === uv2024EventId(userId)).length : 0;
-  const canImport = manifestReady && uv24Files < 60;
+  const canImport = isVerifiedSeedPromoter && manifestReady && uv24Files < 60;
+
 
   useEffect(() => {
     let active = true;
@@ -46,26 +61,46 @@ function SettingsPage() {
           <h1 className="wide-116 text-[26px] font-black uppercase leading-none text-ink">Settings</h1>
 
           <div className="mt-5">
-            <SectionLabel>Business</SectionLabel>
+            <SectionLabel>Promoter</SectionLabel>
           </div>
           <Card className="mt-2 px-4 pb-4 pt-1">
-            <Field label="Business name">
+            <Field label="Promoter name">
               <TextInput value={business} onChange={(e) => setBusiness(e.target.value)} />
+            </Field>
+            <Field label="Username">
+              <TextInput
+                value={username}
+                onChange={(e) => setUsernameInput(e.target.value)}
+                placeholder="@yourname"
+              />
             </Field>
             <Field label="Currency">
               <TextInput value={currency} onChange={(e) => setCurrency(e.target.value)} />
             </Field>
+            <div className="mt-4 flex items-baseline justify-between">
+              <span className="text-[13px] font-semibold text-mute">Promoter code</span>
+              <span className="num text-[14.5px] font-bold text-ink">{promoterCode ?? "—"}</span>
+            </div>
             <div className="mt-5">
               <PrimaryButton
                 onClick={() => {
                   updateSettings({ business: business.trim() || db.settings.business, currency: currency.trim() || db.settings.currency });
-                  showToast("Settings saved");
+                  const next = username.trim().replace(/^@/, "").toLowerCase();
+                  if (next !== (promoterUsername ?? "")) {
+                    void setUsername(next);
+                  } else {
+                    showToast("Settings saved");
+                  }
                 }}
               >
                 Save
               </PrimaryButton>
             </div>
           </Card>
+          <FinePrint>
+            Your promoter code is permanent and identifies your account. The username is optional and yours to claim.
+          </FinePrint>
+
 
           <div className="mt-6">
             <SectionLabel>Tax</SectionLabel>
@@ -127,17 +162,20 @@ function SettingsPage() {
                 </button>
               </div>
             )}
-            <div className="px-4 py-3.5">
-              <button
-                type="button"
-                disabled={resetting}
-                onClick={() => setConfirmReset(true)}
-                className="text-[13px] font-bold uppercase tracking-[0.06em] disabled:opacity-60"
-                style={{ color: "var(--red)" }}
-              >
-                {resetting ? "Resetting…" : "Reset data to seed"}
-              </button>
-            </div>
+            {isVerifiedSeedPromoter && (
+              <div className="px-4 py-3.5">
+                <button
+                  type="button"
+                  disabled={resetting}
+                  onClick={() => setConfirmReset(true)}
+                  className="text-[13px] font-bold uppercase tracking-[0.06em] disabled:opacity-60"
+                  style={{ color: "var(--red)" }}
+                >
+                  {resetting ? "Resetting…" : "Reset data to seed"}
+                </button>
+              </div>
+            )}
+
           </Card>
 
           {confirmReset && (

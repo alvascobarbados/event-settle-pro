@@ -76,7 +76,11 @@ interface StoreValue {
   loading: boolean;
   promoterId: string | null;
   promoterName: string | null;
+  promoterCode: string | null;
+  promoterUsername: string | null;
+  setUsername: (username: string) => Promise<boolean>;
   resetToSeed: () => Promise<void>;
+
   importUv2024: (onProgress?: (done: number, total: number) => void) => Promise<ImportResult>;
   setFileStoragePath: (fileId: string, storagePath: string, type?: FileRecord["type"]) => void;
   signOut: () => Promise<void>;
@@ -133,11 +137,11 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       try {
         const p = await ensurePromoter();
         if (active) setPromoter(p);
-        const loaded = await loadDb(p);
-        const next = loaded.events.length === 0 ? await seedForPromoter(p, userId) : loaded;
+        const next = await loadDb(p);
         /* one-time relocation of legacy per-user upload paths */
         const moved = await migrateStoragePaths(p, userId, next);
         if (active) setDb(moved ? await loadDb(p) : next);
+
       } catch (e) {
         console.error(e);
         showToast("Could not load your data");
@@ -186,6 +190,24 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       loading,
       promoterId: promoter?.id ?? null,
       promoterName: promoter?.name ?? null,
+      promoterCode: promoter?.code ?? null,
+      promoterUsername: promoter?.username ?? null,
+      setUsername: async (username) => {
+        const p = promoterOrThrow();
+        const value = username.trim().replace(/^@/, "").toLowerCase();
+        const { error } = await supabase
+          .from("promoters")
+          .update({ username: value || null } as never)
+          .eq("id", p.id);
+        if (error) {
+          showToast(/duplicate|unique/i.test(error.message) ? "That username is taken" : "Could not save username");
+          return false;
+        }
+        setPromoter({ ...p, username: value || undefined });
+        showToast("Username saved");
+        return true;
+      },
+
       setFileStoragePath: (fileId, storagePath, type) => {
         setDb((d) => ({
           ...d,
