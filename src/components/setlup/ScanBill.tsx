@@ -244,36 +244,24 @@ export function ScanBillPanel({
     }
     setSaving(false);
     showToast("Bill added");
-    onDone();
+    await nextInQueue();
   }
 
   if (phase === "pick") {
     return (
-      <>
-        <Field label="Choose bill">
-          <input
-            type="file"
-            accept="application/pdf,image/*"
-            onChange={(e) => {
-              const f = e.target.files?.[0] ?? null;
-              e.target.value = "";
-              if (f) void pick(f);
-            }}
-            className="w-full text-[13px] text-ink"
-          />
-        </Field>
-        <p className="mt-1 text-[12px] text-mute">
-          The scan reads the vendor, invoice number, date, total and VAT. Nothing is saved until you confirm.
-        </p>
-      </>
+      <FileSource
+        onFiles={(files) => void startQueue(files)}
+        note="The scan reads the vendor, invoice number, date, total and VAT. Nothing is saved until you confirm."
+      />
     );
   }
 
   if (phase === "working") {
     return (
       <div className="py-8 text-center">
-        <div className="text-[14.5px] font-bold text-ink">Scanning…</div>
-        <div className="mt-1 text-[12.5px] text-mute">Reading the document</div>
+        <div className="text-[14.5px] font-bold text-ink">{progress ? "Uploading…" : "Scanning…"}</div>
+        <div className="mt-1 text-[12.5px] text-mute">{progress || "Reading the document"}</div>
+        {counter && <div className="mt-2 text-[11.5px] font-extrabold uppercase tracking-[0.08em] text-mute">{counter}</div>}
       </div>
     );
   }
@@ -282,6 +270,9 @@ export function ScanBillPanel({
 
   return (
     <>
+      {counter && (
+        <div className="pb-2 text-[11.5px] font-extrabold uppercase tracking-[0.08em] text-mute">{counter}</div>
+      )}
       {phase === "failed" && (
         <div className="rounded-[12px] bg-app px-3.5 py-3">
           <div className="text-[13.5px] font-bold text-ink">Couldn’t read it</div>
