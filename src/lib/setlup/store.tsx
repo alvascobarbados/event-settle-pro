@@ -190,6 +190,24 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       loading,
       promoterId: promoter?.id ?? null,
       promoterName: promoter?.name ?? null,
+      promoterCode: promoter?.code ?? null,
+      promoterUsername: promoter?.username ?? null,
+      setUsername: async (username) => {
+        const p = promoterOrThrow();
+        const value = username.trim().replace(/^@/, "").toLowerCase();
+        const { error } = await supabase
+          .from("promoters")
+          .update({ username: value || null } as never)
+          .eq("id", p.id);
+        if (error) {
+          showToast(/duplicate|unique/i.test(error.message) ? "That username is taken" : "Could not save username");
+          return false;
+        }
+        setPromoter({ ...p, username: value || undefined });
+        showToast("Username saved");
+        return true;
+      },
+
       setFileStoragePath: (fileId, storagePath, type) => {
         setDb((d) => ({
           ...d,
