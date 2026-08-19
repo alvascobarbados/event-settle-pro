@@ -50,7 +50,7 @@ export function exportVatPdf({
   y += 14;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
-  doc.text(`${event.name}  ${fmtEventNumber(event.number)}`, M, y);
+  doc.text(`${event.name}  ${fmtEventNumber(event.eventNumber)}`, M, y);
   y += 15;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);

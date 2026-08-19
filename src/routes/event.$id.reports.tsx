@@ -15,6 +15,7 @@ import { Card, FinePrint, PillGroup, SectionLabel } from "@/components/setlup/ui
 import { budgetReportOf, cashOf, pnlOf, vatReportOf, type SectionResult } from "@/lib/setlup/compute";
 import { money, pct, perHead } from "@/lib/setlup/format";
 import { useSetlup } from "@/lib/setlup/store";
+import { exportVatPdf } from "@/lib/setlup/pdf-export";
 
 export const Route = createFileRoute("/event/$id/reports")({
   head: () => ({
@@ -33,7 +34,7 @@ type View = "summary" | "detail";
 
 function Reports() {
   const { id } = Route.useParams();
-  const { db, getEvent, setLineVatExcluded } = useSetlup();
+  const { db, getEvent, setLineVatExcluded, promoterName } = useSetlup();
   const event = getEvent(id);
   const [tab, setTab] = useState<Tab>("pnl");
   const [view, setView] = useState<View>("summary");
@@ -278,16 +279,7 @@ function Reports() {
             <Milestone
               label={vat.net >= 0 ? "Net VAT payable" : "Net VAT refundable"}
               amount={Math.abs(vat.net)}
-              sub={
-                [
-                  event.vatExported ? "Marked exported" : "Not yet exported",
-                  vat.excludedCount > 0
-                    ? `${vat.excludedCount} item${vat.excludedCount === 1 ? "" : "s"} excluded`
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")
-              }
+              sub={event.vatExported ? "Marked exported" : "Not yet exported"}
               hero
             />
           </Card>
