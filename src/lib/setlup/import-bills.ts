@@ -84,6 +84,7 @@ const SEEDED_ROWS: { vendor: string; inv: string; nameKey: string }[] = [
  * P&L line. Never writes amounts on lines and never touches P&L figures.
  */
 export async function importUv2024Bills(
+  promoterId: string,
   userId: string,
   db: Db,
   onProgress?: (done: number, total: number) => void,
@@ -104,7 +105,7 @@ export async function importUv2024Bills(
   for (let i = 0; i < manifest.length; i++) {
     const row = manifest[i]!;
     const diskFile = safeName(row.file);
-    const storagePath = `${userId}/uv2024/${diskFile}`;
+    const storagePath = `${promoterId}/${eventId}/${diskFile}`;
     if (takenPaths.has(storagePath)) {
       skipped++;
       onProgress?.(i + 1, manifest.length);
@@ -158,7 +159,6 @@ export async function importUv2024Bills(
     const nsLine = row.line_id ? `${row.line_id}-${suffix}` : "";
     const { error } = await supabase.from("files").insert({
       id: newId(),
-      user_id: userId,
       event_id: eventId,
       name: stripExt(row.file),
       type: typeFor(row.file),

@@ -25,9 +25,17 @@ const on = (v: unknown): number | undefined => (v === null || v === undefined ? 
 const os = (v: unknown): string | undefined => (v === null || v === undefined ? undefined : String(v));
 const ob = (v: unknown): boolean | undefined => (v === null || v === undefined ? undefined : Boolean(v));
 
+export interface Promoter {
+  id: string;
+  name: string;
+  currency: string;
+  vatRate: number;
+}
+
 function rowToEvent(r: Row): EventRecord {
   return {
     id: String(r["id"]),
+    eventNumber: on(r["event_number"]),
     name: String(r["name"]),
     date: String(r["date"]),
     venue: String(r["venue"] ?? ""),
@@ -47,26 +55,17 @@ function rowToEvent(r: Row): EventRecord {
   };
 }
 
-function eventToRow(e: EventRecord, userId: string): Row {
+/** Fields the create_event RPC does not take; applied straight after creation. */
+function eventExtrasRow(e: EventRecord): Row {
   return {
-    id: e.id,
-    user_id: userId,
-    name: e.name,
-    date: e.date,
-    venue: e.venue,
-    capacity: e.capacity ?? null,
     headcount: e.headcount ?? null,
     comps: e.comps ?? null,
-    stage: e.stage,
-    accent: e.accent,
     locked_at: e.lockedAt ?? null,
-    as_of: e.asOf,
     budget_baseline: e.budgetBaseline ?? null,
     cash_baseline: e.cashBaseline ?? null,
     vat_exported: e.vatExported ?? false,
     vat_filed_date: e.vatFiledDate ?? null,
     input_vat_override: e.inputVatOverride ?? null,
-    planning_rows: e.planningRows ?? null,
   };
 }
 
@@ -87,10 +86,9 @@ function rowToLine(r: Row): Line {
   };
 }
 
-function lineToRow(l: Line, userId: string): Row {
+function lineToRow(l: Line): Row {
   return {
     id: l.id,
-    user_id: userId,
     event_id: l.eventId,
     section: l.section,
     name: l.name,
@@ -120,10 +118,9 @@ function rowToLedger(r: Row, payments: Payment[]): MoneyIn {
   };
 }
 
-export function ledgerToRow(r: MoneyIn | Bill, userId: string): Row {
+export function ledgerToRow(r: MoneyIn | Bill): Row {
   return {
     id: r.id,
-    user_id: userId,
     event_id: r.eventId,
     counterparty: r.counterparty,
     description: r.description,
@@ -148,10 +145,9 @@ function rowToFile(r: Row): FileRecord {
   };
 }
 
-export function fileToRow(f: FileRecord, userId: string): Row {
+export function fileToRow(f: FileRecord): Row {
   return {
     id: f.id,
-    user_id: userId,
     event_id: f.eventId,
     name: f.name,
     type: f.type,
@@ -163,14 +159,30 @@ export function fileToRow(f: FileRecord, userId: string): Row {
 }
 
 /* ------------------------------------------------------------------ */
-/* Load                                                                */
+/* Promoter — the account that owns the data                           */
 /* ------------------------------------------------------------------ */
 
-const DEFAULT_SETTINGS: Settings = { currency: "BBD", vatRate: 17.5, business: "" };
+export async function ensurePromoter(): Promise<Promoter> {
+  const { data, error } = await supabase.rpc("ensure_promoter" as never);
+  if (error) throw error;
+  const r = (Array.isArray(data) ? data[0] : data) as Row;
+  return {
+    id: String(r["id"]),
+    name: String(r["name"] ?? ""),
+    currency: String(r["currency"] ?? "BBD"),
+    vatRate: n(r["vat_rate"] ?? 17.5),
+  };
+}
 
-export async function loadDb(userId: string): Promise<Db> {
-  const [settings, events, lines, moneyIn, bills, payments, files] = await Promise.all([
-    supabase.from("settings").select("*").maybeSingle(),
+/** Storage prefix for a promoter's event documents. */
+export const storagePrefix = (promoterId: string, eventId: string) => `${promoterId}/${eventId}`;
+
+/* ------------------------------------------------------------------ */
+/* Load                                                               */
+/* ------------------------------------------------------------------ */
+
+export async function loadDb(promoter: Promoter): Promise<Db> {
+  const [events, lines, moneyIn, bills, payments, files] = await Promise.all([
     supabase.from("events").select("*").order("date", { ascending: false }),
     supabase.from("lines").select("*").order("sort_order", { ascending: true }),
     supabase.from("money_in").select("*"),
@@ -179,7 +191,7 @@ export async function loadDb(userId: string): Promise<Db> {
     supabase.from("files").select("*").order("date", { ascending: false }),
   ]);
 
-  const err = [settings, events, lines, moneyIn, bills, payments, files].find((r) => r.error)?.error;
+  const err = [events, lines, moneyIn, bills, payments, files].find((r) => r.error)?.error;
   if (err) throw err;
 
   const payRows = (payments.data ?? []) as Row[];
@@ -188,17 +200,43 @@ export async function loadDb(userId: string): Promise<Db> {
       .filter((p) => p["parent_kind"] === kind && p["parent_id"] === id)
       .map((p) => ({ id: String(p["id"]), amount: n(p["amount"]), date: String(p["date"]) }));
 
-  const s = settings.data as Row | null;
+  const settings: Settings = {
+    currency: promoter.currency,
+    vatRate: promoter.vatRate,
+    business: promoter.name,
+  };
+
   return {
-    settings: s
-      ? { currency: String(s["currency"]), vatRate: n(s["vat_rate"]), business: String(s["business"] ?? "") }
-      : { ...DEFAULT_SETTINGS },
+    settings,
     events: ((events.data ?? []) as Row[]).map(rowToEvent),
     lines: ((lines.data ?? []) as Row[]).map(rowToLine),
     moneyIn: ((moneyIn.data ?? []) as Row[]).map((r) => rowToLedger(r, paymentsFor("in", String(r["id"])))),
     bills: ((bills.data ?? []) as Row[]).map((r) => rowToLedger(r, paymentsFor("out", String(r["id"])))),
     files: ((files.data ?? []) as Row[]).map(rowToFile),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* One-time move of legacy {userId}/… uploads to {promoterId}/{eventId} */
+/* ------------------------------------------------------------------ */
+
+export async function migrateStoragePaths(promoter: Promoter, userId: string, db: Db): Promise<boolean> {
+  const legacy = db.files.filter((f) => f.storagePath?.startsWith(`${userId}/`));
+  if (legacy.length === 0) return false;
+  let moved = 0;
+  for (const f of legacy) {
+    const from = f.storagePath!;
+    const base = from.slice(from.lastIndexOf("/") + 1);
+    const to = `${storagePrefix(promoter.id, f.eventId)}/${base}`;
+    const mv = await supabase.storage.from("setlup-files").move(from, to);
+    if (mv.error && !/exists/i.test(mv.error.message)) continue;
+    const { error } = await supabase.from("files").update({ storage_path: to } as never).eq("id", f.id);
+    if (!error) {
+      f.storagePath = to;
+      moved++;
+    }
+  }
+  return moved > 0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -239,29 +277,58 @@ function namespaced(db: Db, suffix: string): Db {
   };
 }
 
+export async function createEventRow(
+  promoterId: string,
+  e: Pick<EventRecord, "id" | "name" | "date" | "venue" | "capacity" | "stage" | "accent" | "asOf" | "planningRows">,
+): Promise<number | undefined> {
+  const { data, error } = await supabase.rpc("create_event" as never, {
+    _promoter_id: promoterId,
+    _id: e.id,
+    _name: e.name,
+    _date: e.date,
+    _venue: e.venue ?? "",
+    _capacity: e.capacity ?? null,
+    _stage: e.stage,
+    _accent: e.accent,
+    _as_of: e.asOf,
+    _planning_rows: e.planningRows ?? null,
+  } as never);
+  if (error) throw error;
+  const row = (Array.isArray(data) ? data[0] : data) as Row | null;
+  return row ? on(row["event_number"]) : undefined;
+}
+
 /**
- * Seeds the signed-in user's starting data exactly once. Values come verbatim
- * from seedDb(); only record ids are namespaced so two accounts can coexist.
+ * Seeds the promoter's starting data exactly once. Values come verbatim from
+ * seedDb(); only record ids are namespaced so two accounts can coexist.
  */
-export async function seedForUser(userId: string): Promise<Db> {
+export async function seedForPromoter(promoter: Promoter, userId: string): Promise<Db> {
   const existing = await supabase.from("events").select("id").limit(1);
   if (existing.error) throw existing.error;
-  if ((existing.data ?? []).length > 0) return loadDb(userId);
+  if ((existing.data ?? []).length > 0) return loadDb(promoter);
 
   const db = namespaced(seedDb(), userId.slice(0, 8));
 
+  for (const e of db.events) {
+    await createEventRow(promoter.id, e);
+    const { error } = await supabase
+      .from("events")
+      .update(eventExtrasRow(e) as never)
+      .eq("id", e.id);
+    if (error) throw error;
+  }
+
   const inserts: { table: string; rows: Row[] }[] = [
-    { table: "events", rows: db.events.map((e) => eventToRow(e, userId)) },
-    { table: "lines", rows: db.lines.map((l) => lineToRow(l, userId)) },
-    { table: "money_in", rows: db.moneyIn.map((r) => ledgerToRow(r, userId)) },
-    { table: "bills", rows: db.bills.map((r) => ledgerToRow(r, userId)) },
+    { table: "lines", rows: db.lines.map(lineToRow) },
+    { table: "money_in", rows: db.moneyIn.map(ledgerToRow) },
+    { table: "bills", rows: db.bills.map(ledgerToRow) },
     {
       table: "payments",
       rows: [
         ...db.moneyIn.flatMap((r) =>
           r.payments.map((p) => ({
             id: p.id,
-            user_id: userId,
+            event_id: r.eventId,
             parent_kind: "in",
             parent_id: r.id,
             amount: p.amount,
@@ -271,7 +338,7 @@ export async function seedForUser(userId: string): Promise<Db> {
         ...db.bills.flatMap((r) =>
           r.payments.map((p) => ({
             id: p.id,
-            user_id: userId,
+            event_id: r.eventId,
             parent_kind: "out",
             parent_id: r.id,
             amount: p.amount,
@@ -280,15 +347,19 @@ export async function seedForUser(userId: string): Promise<Db> {
         ),
       ],
     },
-    { table: "files", rows: db.files.map((f) => fileToRow(f, userId)) },
+    { table: "files", rows: db.files.map(fileToRow) },
   ];
 
-  await supabase.from("settings").upsert({
-    user_id: userId,
-    currency: db.settings.currency,
-    vat_rate: db.settings.vatRate,
-    business: db.settings.business,
-  } as never);
+  if (db.settings.business) {
+    await supabase
+      .from("promoters")
+      .update({
+        name: db.settings.business,
+        currency: db.settings.currency,
+        vat_rate: db.settings.vatRate,
+      } as never)
+      .eq("id", promoter.id);
+  }
 
   for (const { table, rows } of inserts) {
     if (rows.length === 0) continue;
@@ -296,5 +367,10 @@ export async function seedForUser(userId: string): Promise<Db> {
     if (error) throw error;
   }
 
-  return loadDb(userId);
+  return loadDb({
+    ...promoter,
+    name: db.settings.business || promoter.name,
+    currency: db.settings.currency,
+    vatRate: db.settings.vatRate,
+  });
 }

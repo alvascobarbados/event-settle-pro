@@ -82,19 +82,19 @@ function Files() {
 }
 
 function FileRow({ file: f, onOpen }: { file: FileRecord; onOpen: () => void }) {
-  const { db, showToast, userId, setFileStoragePath } = useSetlup();
+  const { db, showToast, promoterId, setFileStoragePath } = useSetlup();
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function upload(file: File) {
-    if (!userId) return;
+    if (!promoterId) return;
     if (file.size > 20 * 1024 * 1024) {
       showToast("File is larger than 20 MB");
       return;
     }
     setBusy(true);
     const safe = file.name.replace(/[^\w.\-]+/g, "_");
-    const path = `${userId}/${f.eventId}/${Date.now()}-${safe}`;
+    const path = `${promoterId}/${f.eventId}/${Date.now()}-${safe}`;
     const { error } = await supabase.storage
       .from("setlup-files")
       .upload(path, file, { contentType: file.type || undefined });

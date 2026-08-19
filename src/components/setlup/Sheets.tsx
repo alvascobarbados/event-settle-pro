@@ -203,7 +203,7 @@ export function ActionSheet({
   open: boolean;
   onClose: () => void;
 }) {
-  const { db, addBill, addMoneyIn, addBudgetLine, addFile, showToast, userId } = useSetlup();
+  const { db, addBill, addMoneyIn, addBudgetLine, addFile, showToast, promoterId } = useSetlup();
   const [mode, setMode] = useState<Mode>("menu");
 
   const [counterparty, setCounterparty] = useState("");
@@ -417,10 +417,10 @@ export function ActionSheet({
                   return;
                 }
                 let storagePath: string | undefined;
-                if (picked && userId) {
+                if (picked && promoterId) {
                   setUploading(true);
                   const safe = picked.name.replace(/[^\w.\-]+/g, "_");
-                  const path = `${userId}/${eventId}/${Date.now()}-${safe}`;
+                  const path = `${promoterId}/${eventId}/${Date.now()}-${safe}`;
                   const { error } = await supabase.storage
                     .from("setlup-files")
                     .upload(path, picked, { contentType: picked.type || undefined });

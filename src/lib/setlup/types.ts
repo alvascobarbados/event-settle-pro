@@ -17,6 +17,8 @@ export const BRAND_ACCENT: Accent = {
 
 export interface EventRecord {
   id: string;
+  /** Permanent, globally unique, never reused. Assigned at creation. */
+  eventNumber?: number;
   name: string;
   date: string; // ISO
   venue: string;

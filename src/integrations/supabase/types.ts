@@ -24,7 +24,6 @@ export type Database = {
           event_id: string
           id: string
           line_id: string | null
-          user_id: string
           vat_exempt: boolean | null
         }
         Insert: {
@@ -36,7 +35,6 @@ export type Database = {
           event_id: string
           id: string
           line_id?: string | null
-          user_id: string
           vat_exempt?: boolean | null
         }
         Update: {
@@ -48,7 +46,6 @@ export type Database = {
           event_id?: string
           id?: string
           line_id?: string | null
-          user_id?: string
           vat_exempt?: boolean | null
         }
         Relationships: [
@@ -61,6 +58,45 @@ export type Database = {
           },
         ]
       }
+      event_promoters: {
+        Row: {
+          created_at: string
+          event_id: string
+          ownership_share: number
+          promoter_id: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          ownership_share?: number
+          promoter_id: string
+          role?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          ownership_share?: number
+          promoter_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_promoters_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_promoters_promoter_id_fkey"
+            columns: ["promoter_id"]
+            isOneToOne: false
+            referencedRelation: "promoters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           accent: Json
@@ -69,7 +105,9 @@ export type Database = {
           capacity: number | null
           cash_baseline: Json | null
           comps: number | null
+          created_by_promoter_id: string | null
           date: string
+          event_number: number
           headcount: number | null
           id: string
           input_vat_override: number | null
@@ -77,7 +115,6 @@ export type Database = {
           name: string
           planning_rows: Json | null
           stage: string
-          user_id: string
           vat_exported: boolean
           vat_filed_date: string | null
           venue: string
@@ -89,7 +126,9 @@ export type Database = {
           capacity?: number | null
           cash_baseline?: Json | null
           comps?: number | null
+          created_by_promoter_id?: string | null
           date: string
+          event_number?: number
           headcount?: number | null
           id: string
           input_vat_override?: number | null
@@ -97,7 +136,6 @@ export type Database = {
           name: string
           planning_rows?: Json | null
           stage: string
-          user_id: string
           vat_exported?: boolean
           vat_filed_date?: string | null
           venue?: string
@@ -109,7 +147,9 @@ export type Database = {
           capacity?: number | null
           cash_baseline?: Json | null
           comps?: number | null
+          created_by_promoter_id?: string | null
           date?: string
+          event_number?: number
           headcount?: number | null
           id?: string
           input_vat_override?: number | null
@@ -117,12 +157,19 @@ export type Database = {
           name?: string
           planning_rows?: Json | null
           stage?: string
-          user_id?: string
           vat_exported?: boolean
           vat_filed_date?: string | null
           venue?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_created_by_promoter_id_fkey"
+            columns: ["created_by_promoter_id"]
+            isOneToOne: false
+            referencedRelation: "promoters"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       files: {
         Row: {
@@ -134,7 +181,6 @@ export type Database = {
           name: string
           storage_path: string | null
           type: string
-          user_id: string
         }
         Insert: {
           amount?: number | null
@@ -145,7 +191,6 @@ export type Database = {
           name: string
           storage_path?: string | null
           type: string
-          user_id: string
         }
         Update: {
           amount?: number | null
@@ -156,7 +201,6 @@ export type Database = {
           name?: string
           storage_path?: string | null
           type?: string
-          user_id?: string
         }
         Relationships: [
           {
@@ -180,7 +224,6 @@ export type Database = {
           ref: string | null
           section: string
           sort_order: number
-          user_id: string
           vat_exempt: boolean | null
           vat_override: number | null
         }
@@ -195,7 +238,6 @@ export type Database = {
           ref?: string | null
           section: string
           sort_order?: number
-          user_id: string
           vat_exempt?: boolean | null
           vat_override?: number | null
         }
@@ -210,7 +252,6 @@ export type Database = {
           ref?: string | null
           section?: string
           sort_order?: number
-          user_id?: string
           vat_exempt?: boolean | null
           vat_override?: number | null
         }
@@ -234,7 +275,6 @@ export type Database = {
           event_id: string
           id: string
           line_id: string | null
-          user_id: string
           vat_exempt: boolean | null
         }
         Insert: {
@@ -246,7 +286,6 @@ export type Database = {
           event_id: string
           id: string
           line_id?: string | null
-          user_id: string
           vat_exempt?: boolean | null
         }
         Update: {
@@ -258,7 +297,6 @@ export type Database = {
           event_id?: string
           id?: string
           line_id?: string | null
-          user_id?: string
           vat_exempt?: boolean | null
         }
         Relationships: [
@@ -275,46 +313,86 @@ export type Database = {
         Row: {
           amount: number
           date: string
+          event_id: string
           id: string
           parent_id: string
           parent_kind: string
-          user_id: string
         }
         Insert: {
           amount?: number
           date: string
+          event_id: string
           id: string
           parent_id: string
           parent_kind: string
-          user_id: string
         }
         Update: {
           amount?: number
           date?: string
+          event_id?: string
           id?: string
           parent_id?: string
           parent_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promoter_members: {
+        Row: {
+          created_at: string
+          promoter_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          promoter_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          promoter_id?: string
+          role?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "promoter_members_promoter_id_fkey"
+            columns: ["promoter_id"]
+            isOneToOne: false
+            referencedRelation: "promoters"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      settings: {
+      promoters: {
         Row: {
-          business: string
+          created_at: string
           currency: string
-          user_id: string
+          id: string
+          name: string
           vat_rate: number
         }
         Insert: {
-          business?: string
+          created_at?: string
           currency?: string
-          user_id: string
+          id?: string
+          name?: string
           vat_rate?: number
         }
         Update: {
-          business?: string
+          created_at?: string
           currency?: string
-          user_id?: string
+          id?: string
+          name?: string
           vat_rate?: number
         }
         Relationships: []
@@ -324,7 +402,65 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_event: {
+        Args: {
+          _accent: Json
+          _as_of: string
+          _capacity: number
+          _date: string
+          _id: string
+          _name: string
+          _planning_rows: Json
+          _promoter_id: string
+          _stage: string
+          _venue: string
+        }
+        Returns: {
+          accent: Json
+          as_of: string
+          budget_baseline: Json | null
+          capacity: number | null
+          cash_baseline: Json | null
+          comps: number | null
+          created_by_promoter_id: string | null
+          date: string
+          event_number: number
+          headcount: number | null
+          id: string
+          input_vat_override: number | null
+          locked_at: string | null
+          name: string
+          planning_rows: Json | null
+          stage: string
+          vat_exported: boolean
+          vat_filed_date: string | null
+          venue: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "events"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ensure_promoter: {
+        Args: never
+        Returns: {
+          created_at: string
+          currency: string
+          id: string
+          name: string
+          vat_rate: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "promoters"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      user_can_access_event: { Args: { _event_id: string }; Returns: boolean }
+      user_promoter_ids: { Args: never; Returns: string[] }
     }
     Enums: {
       [_ in never]: never
