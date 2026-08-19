@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ScrollTop } from "@/components/setlup/Shell";
 import { BillPeek } from "@/components/setlup/BillPeek";
 import { RouteSheet } from "@/components/setlup/Sheets";
-import { ScanBillSheet } from "@/components/setlup/ScanBill";
+import { ScanBillFilesSheet, ScanBillSheet } from "@/components/setlup/ScanBill";
 import { Card, Chip, EmptyState, PillGroup, PrimaryButton, SectionLabel } from "@/components/setlup/ui";
 import { CategoryRouter, Sheet } from "@/components/setlup/Sheets";
 import { categoryLabel } from "@/lib/setlup/compute";
@@ -34,6 +34,8 @@ function Files() {
   const [peekId, setPeekId] = useState<string | null>(null);
   const [routeFileId, setRouteFileId] = useState<string | null>(null);
   const [scanFileId, setScanFileId] = useState<string | null>(null);
+  const [dropped, setDropped] = useState<File[]>([]);
+  const [dragging, setDragging] = useState(false);
   const peekFile = peekId ? db.files.find((f) => f.id === peekId) : undefined;
   if (!event) return null;
 
@@ -61,21 +63,46 @@ function Files() {
         </SectionLabel>
       </div>
 
-      <Card className="mt-2 overflow-hidden">
-        {files.length === 0 ? (
-          <EmptyState title="No files here" body="Attach an invoice or receipt with the + button and link it to a P&L line." />
-        ) : (
-          files.map((f) => (
-            <FileRow
-              key={f.id}
-              file={f}
-              onOpen={() => setPeekId(f.id)}
-              onRoute={() => setRouteFileId(f.id)}
-              onScan={() => setScanFileId(f.id)}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          const list = Array.from(e.dataTransfer.files ?? []);
+          if (list.length) setDropped(list);
+        }}
+      >
+        <Card className={`mt-2 overflow-hidden ${dragging ? "ring-2 ring-offset-2" : ""}`}>
+          {files.length === 0 ? (
+            <EmptyState
+              title="No files here"
+              body="Attach an invoice or receipt with the + button, or drop a PDF here on desktop."
             />
-          ))
-        )}
-      </Card>
+          ) : (
+            files.map((f) => (
+              <FileRow
+                key={f.id}
+                file={f}
+                onOpen={() => setPeekId(f.id)}
+                onRoute={() => setRouteFileId(f.id)}
+                onScan={() => setScanFileId(f.id)}
+              />
+            ))
+          )}
+        </Card>
+      </div>
+
+      <ScanBillFilesSheet
+        eventId={event.id}
+        files={dropped}
+        open={dropped.length > 0}
+        onClose={() => setDropped([])}
+      />
+
 
       <FileRouteSheet fileId={routeFileId} onClose={() => setRouteFileId(null)} />
 

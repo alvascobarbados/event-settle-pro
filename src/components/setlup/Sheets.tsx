@@ -6,6 +6,7 @@ import { money, todayIso } from "@/lib/setlup/format";
 import type { Ledgerable, Section } from "@/lib/setlup/types";
 import { PillGroup, PrimaryButton } from "./ui";
 import { ScanBillPanel } from "./ScanBill";
+import { FileSource } from "./FileSource";
 
 /* ---------------- generic bottom sheet ---------------- */
 
@@ -220,9 +221,9 @@ export function ActionSheet({
   const [vatExempt, setVatExempt] = useState(false);
   const [section, setSection] = useState<Section>("expenses");
   const [name, setName] = useState("");
-  const [fileType, setFileType] = useState<"PDF" | "IMG">("PDF");
-  const [picked, setPicked] = useState<File | null>(null);
+  const [pickedList, setPickedList] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadNote, setUploadNote] = useState("");
   const [chained, setChained] = useState(false);
   const [fileKind, setFileKind] = useState<FileKind>("bill");
 
@@ -245,7 +246,7 @@ export function ActionSheet({
       setMode("menu");
       setChained(false);
       setFileKind("bill");
-      setPicked(null);
+      setPickedList([]);
       reset();
     }, 220);
   };
@@ -434,107 +435,116 @@ export function ActionSheet({
               <ScanBillPanel eventId={eventId} onDone={close} />
             </div>
           ) : (
-        <>
-          <Field label="Choose file">
-            <input
-              type="file"
-              accept="application/pdf,image/*"
-              onChange={(e) => {
-                const f = e.target.files?.[0] ?? null;
-                setPicked(f);
-                if (f) {
-                  if (!name.trim()) setName(f.name.replace(/\.[^.]+$/, ""));
-                  setFileType(f.type.startsWith("image/") ? "IMG" : "PDF");
-                }
-              }}
-              className="w-full text-[13px] text-ink"
-            />
-          </Field>
-          <Field label="File name">
-            <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Security invoice" />
-          </Field>
-          <Field label="Type">
-            <SelectInput value={fileType} onChange={(e) => setFileType(e.target.value as "PDF" | "IMG")}>
-              <option value="PDF">PDF</option>
-              <option value="IMG">Image</option>
-            </SelectInput>
-          </Field>
-          <Field label="Amount (optional)">
-            <TextInput className="num" type="number" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          </Field>
-          <CategoryRouter
-            section="expenses"
-            categoryId={catId}
-            subcategoryId={subId}
-            onChange={(c, sc) => {
-              setCatId(c);
-              setSubId(sc);
-            }}
-          />
-          <div className="mt-5">
-            <PrimaryButton
-              onClick={async () => {
-                if (!name.trim() || uploading) return;
-                if (picked && picked.size > 20 * 1024 * 1024) {
-                  showToast("File is larger than 20 MB");
-                  return;
-                }
-                let storagePath: string | undefined;
-                if (picked && promoterId) {
-                  setUploading(true);
-                  const safe = picked.name.replace(/[^\w.\-]+/g, "_");
-                  const path = `${promoterId}/${eventId}/${Date.now()}-${safe}`;
-                  const { error } = await supabase.storage
-                    .from("setlup-files")
-                    .upload(path, picked, { contentType: picked.type || undefined });
-                  setUploading(false);
-                  if (error) {
-                    showToast("Upload failed");
-                    return;
-                  }
-                  storagePath = path;
-                }
-                const routedLineId = catId
-                  ? await ensureRoutedLine(eventId, catId, subId || undefined, subId ? name.trim() : undefined)
-                  : undefined;
-                addFile({
-                  eventId,
-                  name: name.trim(),
-                  type: fileType,
-                  date: todayIso(),
-                  lineId: routedLineId ?? undefined,
-                  amount: Number(amount) || undefined,
-                  storagePath,
-                });
-                setPicked(null);
-                showToast("File attached");
-                setChained(true);
-                reset();
-              }}
-            >
-              {uploading ? "Uploading…" : "Attach"}
-            </PrimaryButton>
-          </div>
-          {chained && (
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setChained(false)}
-                className="h-11 flex-1 rounded-full bg-app text-[12.5px] font-extrabold uppercase tracking-[0.07em] text-ink"
-              >
-                Add another
-              </button>
-              <button
-                type="button"
-                onClick={close}
-                className="h-11 flex-1 rounded-full text-[12.5px] font-extrabold uppercase tracking-[0.07em] text-white"
-                style={{ backgroundColor: "var(--accent-c)" }}
-              >
-                Done
-              </button>
+            <div className="mt-3">
+              {pickedList.length === 0 ? (
+                <FileSource onFiles={(files) => setPickedList(files)} note="Anything that isn’t a bill — contracts, permits, riders." />
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    {pickedList.map((f, i) => (
+                      <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-[10px] bg-app px-3 py-2.5">
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{f.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setPickedList((l) => l.filter((_, j) => j !== i))}
+                          className="ml-2 shrink-0 text-[11px] font-extrabold uppercase tracking-[0.06em] text-mute"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  {pickedList.length === 1 && (
+                    <>
+                      <Field label="File name">
+                        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Security invoice" />
+                      </Field>
+                      <Field label="Amount (optional)">
+                        <TextInput className="num" type="number" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                      </Field>
+                    </>
+                  )}
+                  <CategoryRouter
+                    section="expenses"
+                    categoryId={catId}
+                    subcategoryId={subId}
+                    onChange={(c, sc) => {
+                      setCatId(c);
+                      setSubId(sc);
+                    }}
+                  />
+                  <div className="mt-5">
+                    <PrimaryButton
+                      onClick={async () => {
+                        if (uploading || !promoterId) return;
+                        const oversize = pickedList.find((f) => f.size > 20 * 1024 * 1024);
+                        if (oversize) {
+                          showToast(`${oversize.name} is larger than 20 MB`);
+                          return;
+                        }
+                        setUploading(true);
+                        const routedLineId = catId
+                          ? await ensureRoutedLine(eventId, catId, subId || undefined)
+                          : undefined;
+                        let done = 0;
+                        for (const f of pickedList) {
+                          setUploadNote(`Uploading ${done + 1} of ${pickedList.length} — ${f.name}`);
+                          const safe = f.name.replace(/[^\w.\-]+/g, "_");
+                          const path = `${promoterId}/${eventId}/${Date.now()}-${safe}`;
+                          const { error } = await supabase.storage
+                            .from("setlup-files")
+                            .upload(path, f, { contentType: f.type || undefined });
+                          if (error) {
+                            showToast(`Upload failed — ${f.name}`);
+                            continue;
+                          }
+                          addFile({
+                            eventId,
+                            name:
+                              pickedList.length === 1 && name.trim()
+                                ? name.trim()
+                                : f.name.replace(/\.[^.]+$/, ""),
+                            type: f.type.startsWith("image/") ? "IMG" : "PDF",
+                            date: todayIso(),
+                            lineId: routedLineId ?? undefined,
+                            amount: pickedList.length === 1 ? Number(amount) || undefined : undefined,
+                            storagePath: path,
+                          });
+                          done += 1;
+                        }
+                        setUploadNote("");
+                        setUploading(false);
+                        setPickedList([]);
+                        showToast(done === 1 ? "File attached" : `${done} files attached`);
+                        setChained(true);
+                        reset();
+                      }}
+                    >
+                      {uploading ? uploadNote || "Uploading…" : `Attach ${pickedList.length > 1 ? pickedList.length + " files" : "file"}`}
+                    </PrimaryButton>
+                  </div>
+                </>
+              )}
+              {chained && (
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setChained(false)}
+                    className="h-11 flex-1 rounded-full bg-app text-[12.5px] font-extrabold uppercase tracking-[0.07em] text-ink"
+                  >
+                    Add another
+                  </button>
+                  <button
+                    type="button"
+                    onClick={close}
+                    className="h-11 flex-1 rounded-full text-[12.5px] font-extrabold uppercase tracking-[0.07em] text-white"
+                    style={{ backgroundColor: "var(--accent-c)" }}
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </>
           )}
         </>
       )}

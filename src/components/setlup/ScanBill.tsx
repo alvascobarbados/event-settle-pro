@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CategoryRouter, Field, Sheet, TextInput, Toggle } from "./Sheets";
 import { Chip, PrimaryButton } from "./ui";
+import { FileSource } from "./FileSource";
 import { scanBill } from "@/lib/setlup/scan-bill.functions";
 import type { ScanFields } from "@/lib/setlup/scan-bill.types";
 import { matchVendor } from "@/lib/setlup/vendors";
@@ -60,22 +61,29 @@ function draftFrom(fields: ScanFields, vendors: Vendor[], cats: { id: string; pa
 export function ScanBillPanel({
   eventId,
   existing,
+  initialFiles,
   onDone,
 }: {
   eventId: string;
   /** Already-uploaded file to scan; when absent the panel starts with a file picker. */
   existing?: FileRecord;
+  /** Files handed in from a drop or an outside picker — the queue starts immediately. */
+  initialFiles?: File[];
   onDone: () => void;
 }) {
   const { db, addRoutedBill, addFile, addVendor, updateVendor, linkFileToLine, showToast, promoterId } = useSetlup();
   const [phase, setPhase] = useState<Phase>(existing ? "working" : "pick");
   const [note, setNote] = useState("");
+  const [progress, setProgress] = useState("");
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [confidence, setConfidence] = useState<number | null>(null);
   const [uploaded, setUploaded] = useState<{ path: string; name: string; type: FileRecord["type"] } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [queue, setQueue] = useState<File[]>([]);
+  const [qIndex, setQIndex] = useState(0);
 
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
+  const counter = queue.length > 1 ? `File ${qIndex + 1} of ${queue.length}` : "";
 
   async function runScan(storagePath: string) {
     setPhase("working");
@@ -106,18 +114,46 @@ export function ScanBillPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existing?.id]);
 
-  async function pick(file: File) {
+  /* files handed in from a drop or a picker before the panel mounted */
+  useEffect(() => {
+    if (!initialFiles?.length) return;
+    void startQueue(initialFiles);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function startQueue(files: File[]) {
+    setQueue(files);
+    setQIndex(0);
+    await pick(files[0]!, 0, files.length);
+  }
+
+  async function nextInQueue() {
+    const n = qIndex + 1;
+    if (n < queue.length) {
+      setQIndex(n);
+      setDraft(EMPTY);
+      setConfidence(null);
+      setUploaded(null);
+      await pick(queue[n]!, n, queue.length);
+    } else {
+      onDone();
+    }
+  }
+
+  async function pick(file: File, index = 0, total = 1) {
     if (!promoterId) return;
     if (file.size > 20 * 1024 * 1024) {
-      showToast("File is larger than 20 MB");
+      showToast(`${file.name} is larger than 20 MB`);
       return;
     }
     setPhase("working");
+    setProgress(total > 1 ? `Uploading ${index + 1} of ${total} — ${file.name}` : `Uploading ${file.name}`);
     const safe = file.name.replace(/[^\w.\-]+/g, "_");
     const path = `${promoterId}/${eventId}/${Date.now()}-${safe}`;
     const { error } = await supabase.storage
       .from("setlup-files")
       .upload(path, file, { contentType: file.type || undefined });
+    setProgress("");
     if (error) {
       setNote("Upload failed — try again.");
       setPhase("failed");
@@ -129,6 +165,21 @@ export function ScanBillPanel({
       type: file.type.startsWith("image/") ? "IMG" : "PDF",
     });
     await runScan(path);
+  }
+
+  /** Leaves the uploaded document in Files as an unlinked upload, nothing else. */
+  async function skip() {
+    if (uploaded && !existing) {
+      addFile({
+        eventId,
+        name: uploaded.name,
+        type: uploaded.type,
+        date: todayIso(),
+        storagePath: uploaded.path,
+      });
+      showToast("Kept as an unlinked file");
+    }
+    await nextInQueue();
   }
 
   async function save() {
@@ -194,36 +245,24 @@ export function ScanBillPanel({
     }
     setSaving(false);
     showToast("Bill added");
-    onDone();
+    await nextInQueue();
   }
 
   if (phase === "pick") {
     return (
-      <>
-        <Field label="Choose bill">
-          <input
-            type="file"
-            accept="application/pdf,image/*"
-            onChange={(e) => {
-              const f = e.target.files?.[0] ?? null;
-              e.target.value = "";
-              if (f) void pick(f);
-            }}
-            className="w-full text-[13px] text-ink"
-          />
-        </Field>
-        <p className="mt-1 text-[12px] text-mute">
-          The scan reads the vendor, invoice number, date, total and VAT. Nothing is saved until you confirm.
-        </p>
-      </>
+      <FileSource
+        onFiles={(files) => void startQueue(files)}
+        note="The scan reads the vendor, invoice number, date, total and VAT. Nothing is saved until you confirm."
+      />
     );
   }
 
   if (phase === "working") {
     return (
       <div className="py-8 text-center">
-        <div className="text-[14.5px] font-bold text-ink">Scanning…</div>
-        <div className="mt-1 text-[12.5px] text-mute">Reading the document</div>
+        <div className="text-[14.5px] font-bold text-ink">{progress ? "Uploading…" : "Scanning…"}</div>
+        <div className="mt-1 text-[12.5px] text-mute">{progress || "Reading the document"}</div>
+        {counter && <div className="mt-2 text-[11.5px] font-extrabold uppercase tracking-[0.08em] text-mute">{counter}</div>}
       </div>
     );
   }
@@ -232,6 +271,9 @@ export function ScanBillPanel({
 
   return (
     <>
+      {counter && (
+        <div className="pb-2 text-[11.5px] font-extrabold uppercase tracking-[0.08em] text-mute">{counter}</div>
+      )}
       {phase === "failed" && (
         <div className="rounded-[12px] bg-app px-3.5 py-3">
           <div className="text-[13.5px] font-bold text-ink">Couldn’t read it</div>
@@ -292,7 +334,37 @@ export function ScanBillPanel({
       <div className="mt-5">
         <PrimaryButton onClick={() => !saving && void save()}>{saving ? "Saving…" : "Save bill"}</PrimaryButton>
       </div>
+      {!existing && (
+        <button
+          type="button"
+          onClick={() => !saving && void skip()}
+          className="mt-3 h-11 w-full rounded-full bg-app text-[12.5px] font-extrabold uppercase tracking-[0.07em] text-ink"
+        >
+          {queue.length > 1 && qIndex + 1 < queue.length ? "Skip this one" : "Cancel — keep file only"}
+        </button>
+      )}
     </>
+  );
+}
+
+/** Bills handed in from a drop or an outside picker. */
+export function ScanBillFilesSheet({
+  eventId,
+  files,
+  open,
+  onClose,
+}: {
+  eventId: string;
+  files: File[];
+  open: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <Sheet open={open} onClose={onClose} title="Scan bill">
+      {open && files.length > 0 && (
+        <ScanBillPanel key={files[0]!.name + files.length} eventId={eventId} initialFiles={files} onDone={onClose} />
+      )}
+    </Sheet>
   );
 }
 
