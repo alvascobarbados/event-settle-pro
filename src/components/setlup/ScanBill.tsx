@@ -70,12 +70,16 @@ export function ScanBillPanel({
   const { db, addRoutedBill, addFile, addVendor, updateVendor, linkFileToLine, showToast, promoterId } = useSetlup();
   const [phase, setPhase] = useState<Phase>(existing ? "working" : "pick");
   const [note, setNote] = useState("");
+  const [progress, setProgress] = useState("");
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [confidence, setConfidence] = useState<number | null>(null);
   const [uploaded, setUploaded] = useState<{ path: string; name: string; type: FileRecord["type"] } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [queue, setQueue] = useState<File[]>([]);
+  const [qIndex, setQIndex] = useState(0);
 
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
+  const counter = queue.length > 1 ? `File ${qIndex + 1} of ${queue.length}` : "";
 
   async function runScan(storagePath: string) {
     setPhase("working");
@@ -106,18 +110,46 @@ export function ScanBillPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existing?.id]);
 
-  async function pick(file: File) {
+  /* files handed in from a drop or a picker before the panel mounted */
+  useEffect(() => {
+    if (!initialFiles?.length) return;
+    void startQueue(initialFiles);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function startQueue(files: File[]) {
+    setQueue(files);
+    setQIndex(0);
+    await pick(files[0]!, 0, files.length);
+  }
+
+  async function nextInQueue() {
+    const n = qIndex + 1;
+    if (n < queue.length) {
+      setQIndex(n);
+      setDraft(EMPTY);
+      setConfidence(null);
+      setUploaded(null);
+      await pick(queue[n]!, n, queue.length);
+    } else {
+      onDone();
+    }
+  }
+
+  async function pick(file: File, index = 0, total = 1) {
     if (!promoterId) return;
     if (file.size > 20 * 1024 * 1024) {
-      showToast("File is larger than 20 MB");
+      showToast(`${file.name} is larger than 20 MB`);
       return;
     }
     setPhase("working");
+    setProgress(total > 1 ? `Uploading ${index + 1} of ${total} — ${file.name}` : `Uploading ${file.name}`);
     const safe = file.name.replace(/[^\w.\-]+/g, "_");
     const path = `${promoterId}/${eventId}/${Date.now()}-${safe}`;
     const { error } = await supabase.storage
       .from("setlup-files")
       .upload(path, file, { contentType: file.type || undefined });
+    setProgress("");
     if (error) {
       setNote("Upload failed — try again.");
       setPhase("failed");
@@ -129,6 +161,21 @@ export function ScanBillPanel({
       type: file.type.startsWith("image/") ? "IMG" : "PDF",
     });
     await runScan(path);
+  }
+
+  /** Leaves the uploaded document in Files as an unlinked upload, nothing else. */
+  async function skip() {
+    if (uploaded && !existing) {
+      addFile({
+        eventId,
+        name: uploaded.name,
+        type: uploaded.type,
+        date: todayIso(),
+        storagePath: uploaded.path,
+      });
+      showToast("Kept as an unlinked file");
+    }
+    await nextInQueue();
   }
 
   async function save() {
