@@ -9,10 +9,12 @@ import {
 } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  billToRow,
   createEventRow,
   ensurePromoter,
   fileToRow,
   ledgerToRow,
+  lineToRow,
   loadDb,
   migrateStoragePaths,
   seedForPromoter,
@@ -22,6 +24,8 @@ import {
 import { importUv2024Bills, type ImportResult } from "./import-bills";
 import {
   BRAND_ACCENT,
+  type Bill,
+  type Category,
   type Db,
   type EventRecord,
   type FileRecord,
@@ -36,6 +40,7 @@ const uid = (p: string) => `${p}-${Date.now().toString(36)}-${(seq++).toString(3
 
 const EMPTY_DB: Db = {
   settings: { currency: "BBD", vatRate: 17.5, business: "" },
+  categories: [],
   events: [],
   lines: [],
   moneyIn: [],
@@ -53,6 +58,18 @@ interface NewRecordInput {
   vatExempt?: boolean;
 }
 
+export interface RoutedBillInput {
+  eventId: string;
+  counterparty: string;
+  description: string;
+  ref?: string;
+  amount: number;
+  dueDate: string;
+  vatExempt?: boolean;
+  categoryId: string;
+  subcategoryId?: string;
+}
+
 interface StoreValue {
   db: Db;
   toast: string | null;
@@ -61,6 +78,17 @@ interface StoreValue {
   addPayment: (kind: "in" | "out", recordId: string, amount: number, date: string) => void;
   addMoneyIn: (input: NewRecordInput) => void;
   addBill: (input: NewRecordInput) => void;
+  /* taxonomy */
+  addCategory: (section: Section, name: string, parentId?: string) => Promise<void>;
+  renameCategory: (id: string, name: string) => Promise<void>;
+  setCategoryArchived: (id: string, archived: boolean) => Promise<void>;
+  reorderCategories: (ids: string[]) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
+  /* routing */
+  addRoutedBill: (input: RoutedBillInput) => Promise<{ billId: string; lineId: string } | null>;
+  routeLine: (lineId: string, categoryId: string, subcategoryId?: string) => Promise<void>;
+  ensureRoutedLine: (eventId: string, categoryId: string, subcategoryId?: string, childName?: string) => Promise<string | null>;
+  deleteBill: (billId: string) => Promise<void>;
   addBudgetLine: (eventId: string, section: Section, name: string, amount: number, vatExempt: boolean) => void;
   addFile: (file: Omit<FileRecord, "id">) => void;
   setStage: (eventId: string, stage: EventRecord["stage"]) => void;
@@ -83,6 +111,7 @@ interface StoreValue {
 
   importUv2024: (onProgress?: (done: number, total: number) => void) => Promise<ImportResult>;
   setFileStoragePath: (fileId: string, storagePath: string, type?: FileRecord["type"]) => void;
+  routeFile: (fileId: string, categoryId: string, subcategoryId?: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -168,6 +197,125 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       return promoter;
     };
 
+
+    const insertLine = async (input: {
+      eventId: string;
+      section: Section;
+      name: string;
+      parentId?: string;
+      categoryId?: string;
+      budgetAmount: number;
+      detail?: string;
+      ref?: string;
+      vatExempt?: boolean;
+    }): Promise<Line | null> => {
+      const siblings = db.lines.filter(
+        (l) =>
+          l.eventId === input.eventId &&
+          l.section === input.section &&
+          (l.parentId ?? null) === (input.parentId ?? null),
+      );
+      const line: Line = {
+        id: uid("l"),
+        eventId: input.eventId,
+        section: input.section,
+        name: input.name,
+        sortOrder: siblings.length + 1,
+        budgetAmount: input.budgetAmount,
+        actualAmount: 0,
+        parentId: input.parentId,
+        categoryId: input.categoryId,
+        detail: input.detail,
+        ref: input.ref,
+        vatExempt: input.vatExempt,
+      };
+      setDb((d) => ({ ...d, lines: [...d.lines, line] }));
+      const { error } = await supabase.from("lines").insert(lineToRow(line) as never);
+      if (error) {
+        fail(error);
+        return null;
+      }
+      return line;
+    };
+
+    /** find-or-create the event's parent P&L line for a category */
+    const ensureParentLine = async (eventId: string, categoryId: string): Promise<Line | null> => {
+      const cat = db.categories.find((c) => c.id === categoryId);
+      if (!cat) return null;
+      const root = cat.parentId ? db.categories.find((c) => c.id === cat.parentId) ?? cat : cat;
+      const existing = db.lines.find(
+        (l) =>
+          l.eventId === eventId &&
+          l.section === root.section &&
+          !l.parentId &&
+          (l.categoryId === root.id || l.name === root.name),
+      );
+      if (existing) return existing;
+      return insertLine({
+        eventId,
+        section: root.section,
+        name: root.name,
+        categoryId: root.id,
+        budgetAmount: 0,
+      });
+    };
+
+    const ensureRoutedLineFn = async (
+      eventId: string,
+      categoryId: string,
+      subcategoryId?: string,
+      childName?: string,
+    ): Promise<string | null> => {
+        const parent = await ensureParentLine(eventId, categoryId);
+        if (!parent) return null;
+        if (!childName) return parent.id;
+        const nodeId = subcategoryId ?? categoryId;
+        const existing = db.lines.find(
+          (l) => l.parentId === parent.id && l.name === childName && l.categoryId === nodeId,
+        );
+        if (existing) return existing.id;
+        const child = await insertLine({
+          eventId,
+          section: parent.section,
+          name: childName,
+          parentId: parent.id,
+          categoryId: nodeId,
+          budgetAmount: 0,
+        });
+        return child?.id ?? null;
+    };
+
+    const routeLineFn = async (lineId: string, categoryId: string, subcategoryId?: string): Promise<void> => {
+        const line = db.lines.find((l) => l.id === lineId);
+        const cat = db.categories.find((c) => c.id === categoryId);
+        if (!line || !cat) return;
+        const nodeId = subcategoryId ?? cat.id;
+        if (!line.parentId) {
+          setDb((d) => ({ ...d, lines: d.lines.map((l) => (l.id === lineId ? { ...l, categoryId: nodeId } : l)) }));
+          const { error } = await supabase.from("lines").update({ category_id: nodeId } as never).eq("id", lineId);
+          if (error) fail(error);
+          return;
+        }
+        const parent = await ensureParentLine(line.eventId, cat.id);
+        if (!parent) return;
+        setDb((d) => ({
+          ...d,
+          lines: d.lines.map((l) => (l.id === lineId ? { ...l, parentId: parent.id, categoryId: nodeId } : l)),
+          bills: d.bills.map((b) => (b.lineId === lineId ? { ...b, categoryId: nodeId } : b)),
+        }));
+        const { error } = await supabase
+          .from("lines")
+          .update({ parent_id: parent.id, category_id: nodeId } as never)
+          .eq("id", lineId);
+        if (error) fail(error);
+        const billIds = db.bills.filter((b) => b.lineId === lineId).map((b) => b.id);
+        if (billIds.length > 0) {
+          const r = await supabase.from("bills").update({ category_id: nodeId } as never).in("id", billIds);
+          if (r.error) fail(r.error);
+        }
+        showToast("Re-routed");
+    };
+
     const patchEvent = (eventId: string, patch: Partial<EventRecord>, row: Record<string, unknown>) => {
       setDb((d) => ({
         ...d,
@@ -206,6 +354,27 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
         setPromoter({ ...p, username: value || undefined });
         showToast("Username saved");
         return true;
+      },
+
+      routeFile: async (fileId, categoryId, subcategoryId) => {
+        const file = db.files.find((f) => f.id === fileId);
+        if (!file) return;
+        const linked = file.lineId ? db.lines.find((l) => l.id === file.lineId) : undefined;
+        if (linked?.parentId) {
+          await routeLineFn(linked.id, categoryId, subcategoryId);
+          return;
+        }
+        const lineId = await ensureRoutedLineFn(
+          file.eventId,
+          categoryId,
+          subcategoryId,
+          subcategoryId ? file.name : undefined,
+        );
+        if (!lineId) return;
+        setDb((d) => ({ ...d, files: d.files.map((f) => (f.id === fileId ? { ...f, lineId } : f)) }));
+        const { error } = await supabase.from("files").update({ line_id: lineId } as never).eq("id", fileId);
+        if (error) return fail(error);
+        showToast("Re-routed");
       },
 
       setFileStoragePath: (fileId, storagePath, type) => {
@@ -312,6 +481,167 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
           .from("bills")
           .insert(ledgerToRow(rec) as never)
           .then(({ error }) => error && fail(error));
+      },
+      /* ---------------- taxonomy ---------------- */
+      addCategory: async (section, name, parentId) => {
+        const p = promoterOrThrow();
+        const value = name.trim();
+        if (!value) return;
+        const siblings = db.categories.filter(
+          (c) => c.section === section && (c.parentId ?? null) === (parentId ?? null),
+        );
+        const row = {
+          promoter_id: p.id,
+          parent_id: parentId ?? null,
+          section,
+          name: value,
+          sort_order: siblings.length + 1,
+          archived: false,
+        };
+        const { data, error } = await supabase.from("categories").insert(row as never).select("*").single();
+        if (error || !data) return fail(error);
+        const rec = data as Record<string, unknown>;
+        const cat: Category = {
+          id: String(rec["id"]),
+          promoterId: p.id,
+          parentId: parentId,
+          section,
+          name: value,
+          sortOrder: siblings.length + 1,
+          archived: false,
+        };
+        setDb((d) => ({ ...d, categories: [...d.categories, cat] }));
+      },
+      renameCategory: async (id, name) => {
+        const value = name.trim();
+        if (!value) return;
+        setDb((d) => ({
+          ...d,
+          categories: d.categories.map((c) => (c.id === id ? { ...c, name: value } : c)),
+          /* parent P&L lines carrying this category keep their label in step */
+          lines: d.lines.map((l) => (!l.parentId && l.categoryId === id ? { ...l, name: value } : l)),
+        }));
+        const renamedLines = db.lines.filter((l) => !l.parentId && l.categoryId === id).map((l) => l.id);
+        const { error } = await supabase.from("categories").update({ name: value } as never).eq("id", id);
+        if (error) return fail(error);
+        if (renamedLines.length > 0) {
+          const r = await supabase.from("lines").update({ name: value } as never).in("id", renamedLines);
+          if (r.error) fail(r.error);
+        }
+      },
+      setCategoryArchived: async (id, archived) => {
+        setDb((d) => ({
+          ...d,
+          categories: d.categories.map((c) => (c.id === id ? { ...c, archived } : c)),
+        }));
+        const { error } = await supabase.from("categories").update({ archived } as never).eq("id", id);
+        if (error) fail(error);
+      },
+      reorderCategories: async (ids) => {
+        setDb((d) => ({
+          ...d,
+          categories: d.categories.map((c) => {
+            const i = ids.indexOf(c.id);
+            return i === -1 ? c : { ...c, sortOrder: i + 1 };
+          }),
+        }));
+        for (const [i, id] of ids.entries()) {
+          const { error } = await supabase.from("categories").update({ sort_order: i + 1 } as never).eq("id", id);
+          if (error) {
+            fail(error);
+            return;
+          }
+        }
+      },
+      deleteCategory: async (id) => {
+        const used =
+          db.categories.some((c) => c.parentId === id) ||
+          db.lines.some((l) => l.categoryId === id) ||
+          db.bills.some((b) => b.categoryId === id);
+        if (used) {
+          showToast("In use — archive it instead");
+          return;
+        }
+        setDb((d) => ({ ...d, categories: d.categories.filter((c) => c.id !== id) }));
+        const { error } = await supabase.from("categories").delete().eq("id", id);
+        if (error) fail(error);
+      },
+
+      /* ---------------- routing ---------------- */
+      ensureRoutedLine: ensureRoutedLineFn,
+      addRoutedBill: async (input) => {
+        const cat = db.categories.find((c) => c.id === input.categoryId);
+        if (!cat) return null;
+        const parent = await ensureParentLine(input.eventId, cat.id);
+        if (!parent) return null;
+        const child = await insertLine({
+          eventId: input.eventId,
+          section: cat.section,
+          name: input.counterparty,
+          parentId: parent.id,
+          categoryId: input.subcategoryId ?? cat.id,
+          budgetAmount: input.amount,
+          detail: input.description || undefined,
+          ref: input.ref || undefined,
+          vatExempt: input.vatExempt || undefined,
+        });
+        if (!child) return null;
+        const bill: Bill = {
+          id: uid("b"),
+          eventId: input.eventId,
+          counterparty: input.counterparty,
+          description: input.description || "\u2014",
+          amount: input.amount,
+          dueDate: input.dueDate,
+          lineId: child.id,
+          vatExempt: input.vatExempt,
+          categoryId: input.subcategoryId ?? cat.id,
+          countInActual: true,
+          payments: [],
+        };
+        setDb((d) => ({ ...d, bills: [...d.bills, bill] }));
+        const { error } = await supabase.from("bills").insert(billToRow(bill) as never);
+        if (error) fail(error);
+        return { billId: bill.id, lineId: child.id };
+      },
+      routeLine: routeLineFn,
+      deleteBill: async (billId) => {
+        const bill = db.bills.find((b) => b.id === billId);
+        if (!bill) return;
+        const lineId = bill.lineId;
+        const child = lineId ? db.lines.find((l) => l.id === lineId) : undefined;
+        /* the child line only exists to carry this bill — drop it when nothing else uses it */
+        const dropChild =
+          !!child &&
+          !!child.parentId &&
+          child.actualAmount === 0 &&
+          db.bills.filter((b) => b.lineId === child.id).length === 1 &&
+          !db.moneyIn.some((r) => r.lineId === child.id) &&
+          !db.files.some((f) => f.lineId === child.id);
+        const parent = dropChild ? db.lines.find((l) => l.id === child!.parentId) : undefined;
+        const dropParent =
+          !!parent &&
+          parent.budgetAmount === 0 &&
+          parent.actualAmount === 0 &&
+          db.lines.filter((l) => l.parentId === parent.id).length === 1 &&
+          !db.bills.some((b) => b.lineId === parent.id) &&
+          !db.moneyIn.some((r) => r.lineId === parent.id) &&
+          !db.files.some((f) => f.lineId === parent.id);
+
+        const dropIds = [...(dropChild ? [child!.id] : []), ...(dropParent ? [parent!.id] : [])];
+        setDb((d) => ({
+          ...d,
+          bills: d.bills.filter((b) => b.id !== billId),
+          lines: d.lines.filter((l) => !dropIds.includes(l.id)),
+        }));
+        await supabase.from("payments").delete().eq("parent_kind", "out").eq("parent_id", billId);
+        const { error } = await supabase.from("bills").delete().eq("id", billId);
+        if (error) return fail(error);
+        if (dropIds.length > 0) {
+          const r = await supabase.from("lines").delete().in("id", dropIds);
+          if (r.error) fail(r.error);
+        }
+        showToast("Bill deleted");
       },
       addBudgetLine: (eventId, section, name, amount, vatExempt) => {
         const siblings = db.lines.filter((l) => l.eventId === eventId && l.section === section && !l.parentId);

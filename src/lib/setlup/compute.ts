@@ -270,6 +270,21 @@ export function vendorsOf(db: Db): VendorSummary[] {
     .sort((a, b) => b.billed - a.billed);
 }
 
+/**
+ * The expense/revenue CATEGORY a record was routed to — never the vendor.
+ * Resolves a linked line to its root parent line, adding " · SUBCATEGORY"
+ * when the routed line carries a second-level taxonomy node.
+ */
+export function categoryLabel(db: Db, lineId?: string): string | null {
+  if (!lineId) return null;
+  const line = db.lines.find((l) => l.id === lineId);
+  if (!line) return null;
+  const root = line.parentId ? db.lines.find((l) => l.id === line.parentId) ?? line : line;
+  const node = line.categoryId ? db.categories.find((c) => c.id === line.categoryId) : undefined;
+  const sub = node?.parentId ? node : undefined;
+  return sub ? `${root.name} · ${sub.name}` : root.name;
+}
+
 export function lineName(db: Db, lineId?: string): string | null {
   if (!lineId) return null;
   return db.lines.find((l) => l.id === lineId)?.name ?? null;

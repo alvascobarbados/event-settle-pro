@@ -186,6 +186,8 @@ export function seedDb(): Db {
 
   return {
     settings: { currency: "BBD", vatRate: 17.5, business: "UV Vibe" },
+    categories: [],
+
     events: [
       {
         id: "e26",
