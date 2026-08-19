@@ -74,26 +74,30 @@ function lineAmount(db: Db, line: Line, budgeted: boolean): number {
   return Math.round((line.actualAmount + linked) * 100) / 100;
 }
 
+function rowVat(line: Line, amount: number, inheritedExempt?: boolean): number {
+  if (line.vatOverride !== undefined) return line.vatOverride;
+  return vatOf(amount, line.vatExempt ?? inheritedExempt);
+}
+
 function section(db: Db, event: EventRecord, sec: Section, budgeted: boolean): SectionResult {
   const all = db.lines.filter((l) => l.eventId === event.id && l.section === sec);
   const parents = all
     .filter((l) => !l.parentId)
     .sort((a, b) => a.sortOrder - b.sortOrder);
-  let taxable = 0;
   const rows: PnlRow[] = parents.map((p) => {
     const amount = lineAmount(db, p, budgeted);
-    if (!p.vatExempt) taxable += amount;
     const children = all
       .filter((c) => c.parentId === p.id)
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((c) => {
         const cAmount = lineAmount(db, c, budgeted);
-        return { line: c, amount: cAmount, vat: vatOf(cAmount, c.vatExempt ?? p.vatExempt), children: [] };
+        return { line: c, amount: cAmount, vat: rowVat(c, cAmount, p.vatExempt), children: [] };
       });
-    return { line: p, amount, vat: vatOf(amount, p.vatExempt), children };
+    return { line: p, amount, vat: rowVat(p, amount), children };
   });
   const amount = Math.round(rows.reduce((s, r) => s + r.amount, 0) * 100) / 100;
-  return { rows, amount, vat: vatOf(taxable) };
+  const vat = Math.round(rows.reduce((s, r) => s + r.vat, 0) * 100) / 100;
+  return { rows, amount, vat };
 }
 
 export function pnlOf(db: Db, event: EventRecord): Pnl {
@@ -105,9 +109,7 @@ export function pnlOf(db: Db, event: EventRecord): Pnl {
   const profitBeforeTax = Math.round((grossProfit - expenses.amount) * 100) / 100;
   const outputVat = revenue.vat;
   const inputVat =
-    event.inputVatOverride !== undefined
-      ? round2(event.inputVatOverride)
-      : Math.round((cos.vat + expenses.vat) * 100) / 100;
+    event.inputVatOverride ?? Math.round((cos.vat + expenses.vat) * 100) / 100;
   return {
     budgeted,
     revenue,
@@ -179,10 +181,8 @@ export function cashOf(db: Db, event: EventRecord) {
   const pnl = pnlOf(db, event);
   const remainingIn = toCollect(db, event);
   const remainingOut = toPay(db, event);
-  // On a closed event the VAT has already been remitted in cash, so
-  // subtracting it again would double-count it.
-  const vatStillDue = event.stage === "closed" ? 0 : pnl.netVat;
-  const fullySettled = round2(position + remainingIn - remainingOut - vatStillDue);
+  const vatOutstanding = event.stage === "closed" ? 0 : pnl.netVat;
+  const fullySettled = round2(position + remainingIn - remainingOut - vatOutstanding);
   return { collected, paid, position, remainingIn, remainingOut, netVat: pnl.netVat, fullySettled };
 }
 
