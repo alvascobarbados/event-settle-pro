@@ -84,6 +84,8 @@ export interface FileRecord {
   date: string;
   lineId?: string;
   amount?: number;
+  /** Path in the private files bucket; absent on seeded rows. */
+  storagePath?: string;
 }
 
 export interface Settings {
