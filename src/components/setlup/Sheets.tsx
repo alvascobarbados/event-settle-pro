@@ -4,7 +4,8 @@ import { useSetlup } from "@/lib/setlup/store";
 import { balanceOf } from "@/lib/setlup/compute";
 import { money, todayIso } from "@/lib/setlup/format";
 import type { Ledgerable, Section } from "@/lib/setlup/types";
-import { PrimaryButton } from "./ui";
+import { PillGroup, PrimaryButton } from "./ui";
+import { ScanBillPanel } from "./ScanBill";
 
 /* ---------------- generic bottom sheet ---------------- */
 
@@ -193,6 +194,7 @@ export function PaymentSheet({
 /* ---------------- quick-add action sheet ---------------- */
 
 type Mode = "menu" | "bill" | "in" | "line" | "file";
+type FileKind = "bill" | "other";
 
 export function ActionSheet({
   eventId,
@@ -222,6 +224,7 @@ export function ActionSheet({
   const [picked, setPicked] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [chained, setChained] = useState(false);
+  const [fileKind, setFileKind] = useState<FileKind>("bill");
 
   const reset = () => {
     setCounterparty("");
@@ -241,6 +244,7 @@ export function ActionSheet({
     window.setTimeout(() => {
       setMode("menu");
       setChained(false);
+      setFileKind("bill");
       setPicked(null);
       reset();
     }, 220);
@@ -281,7 +285,7 @@ export function ActionSheet({
               ["bill", "Add bill", "Something you owe a vendor"],
               ["in", "Add money in", "Sponsorship, tickets, tables"],
               ["line", "Add budget line", "New P&L line for this event"],
-              ["file", "Attach file", "Invoice, receipt or agreement"],
+              ["file", "Attach file", "Scan a bill, or attach any document"],
             ] as [Mode, string, string][]
           ).map(([m, label, sub]) => (
             <button
@@ -417,6 +421,20 @@ export function ActionSheet({
 
       {mode === "file" && (
         <>
+          <PillGroup<FileKind>
+            value={fileKind}
+            onChange={setFileKind}
+            options={[
+              { value: "bill", label: "Bill" },
+              { value: "other", label: "Other" },
+            ]}
+          />
+          {fileKind === "bill" ? (
+            <div className="mt-3">
+              <ScanBillPanel eventId={eventId} onDone={close} />
+            </div>
+          ) : (
+        <>
           <Field label="Choose file">
             <input
               type="file"
@@ -515,6 +533,8 @@ export function ActionSheet({
                 Done
               </button>
             </div>
+          )}
+        </>
           )}
         </>
       )}

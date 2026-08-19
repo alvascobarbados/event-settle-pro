@@ -13,6 +13,7 @@ import type {
   Section,
   Settings,
   Stage,
+  Vendor,
 } from "./types";
 
 /* ------------------------------------------------------------------ */
@@ -147,6 +148,18 @@ export function billToRow(r: Bill): Row {
 }
 
 
+export function rowToVendor(r: Row): Vendor {
+  return {
+    id: String(r["id"]),
+    promoterId: String(r["promoter_id"]),
+    name: String(r["name"]),
+    aliases: ((r["aliases"] as string[] | null) ?? []).map(String),
+    defaultCategoryId: os(r["default_category_id"]),
+    defaultSubcategoryId: os(r["default_subcategory_id"]),
+    vatRegistered: Boolean(r["vat_registered"]),
+  };
+}
+
 export function rowToCategory(r: Row): Category {
   return {
     id: String(r["id"]),
@@ -212,7 +225,7 @@ export const storagePrefix = (promoterId: string, eventId: string) => `${promote
 /* ------------------------------------------------------------------ */
 
 export async function loadDb(promoter: Promoter): Promise<Db> {
-  const [events, lines, moneyIn, bills, payments, files, categories] = await Promise.all([
+  const [events, lines, moneyIn, bills, payments, files, categories, vendors] = await Promise.all([
     supabase.from("events").select("*").order("date", { ascending: false }),
     supabase.from("lines").select("*").order("sort_order", { ascending: true }),
     supabase.from("money_in").select("*"),
@@ -220,9 +233,10 @@ export async function loadDb(promoter: Promoter): Promise<Db> {
     supabase.from("payments").select("*").order("date", { ascending: true }),
     supabase.from("files").select("*").order("date", { ascending: false }),
     supabase.from("categories").select("*").order("sort_order", { ascending: true }),
+    supabase.from("vendors").select("*").order("name", { ascending: true }),
   ]);
 
-  const err = [events, lines, moneyIn, bills, payments, files, categories].find((r) => r.error)?.error;
+  const err = [events, lines, moneyIn, bills, payments, files, categories, vendors].find((r) => r.error)?.error;
   if (err) throw err;
 
   const payRows = (payments.data ?? []) as Row[];
@@ -240,6 +254,7 @@ export async function loadDb(promoter: Promoter): Promise<Db> {
   return {
     settings,
     categories: ((categories.data ?? []) as Row[]).map(rowToCategory),
+    vendors: ((vendors.data ?? []) as Row[]).map(rowToVendor),
     events: ((events.data ?? []) as Row[]).map(rowToEvent),
     lines: ((lines.data ?? []) as Row[]).map(rowToLine),
     moneyIn: ((moneyIn.data ?? []) as Row[]).map((r) => rowToLedger(r, paymentsFor("in", String(r["id"])))),
@@ -280,6 +295,7 @@ function namespaced(db: Db, suffix: string): Db {
   return {
     settings: db.settings,
     categories: db.categories,
+    vendors: db.vendors,
     events: db.events.map((e) => ({ ...e, id: key(e.id) })),
     lines: db.lines.map((l) => ({
       ...l,

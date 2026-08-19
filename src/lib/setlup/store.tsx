@@ -32,6 +32,7 @@ import {
   type Line,
   type Section,
   type Settings,
+  type Vendor,
 } from "./types";
 import { todayIso } from "./format";
 
@@ -41,6 +42,7 @@ const uid = (p: string) => `${p}-${Date.now().toString(36)}-${(seq++).toString(3
 const EMPTY_DB: Db = {
   settings: { currency: "BBD", vatRate: 17.5, business: "" },
   categories: [],
+  vendors: [],
   events: [],
   lines: [],
   moneyIn: [],
@@ -68,6 +70,8 @@ export interface RoutedBillInput {
   vatExempt?: boolean;
   categoryId: string;
   subcategoryId?: string;
+  /** Real VAT from the scanned document; stored verbatim on the line. */
+  vatAmount?: number;
 }
 
 interface StoreValue {
@@ -87,6 +91,18 @@ interface StoreValue {
   /* routing */
   addRoutedBill: (input: RoutedBillInput) => Promise<{ billId: string; lineId: string } | null>;
   routeLine: (lineId: string, categoryId: string, subcategoryId?: string) => Promise<void>;
+  /* vendor master */
+  addVendor: (input: {
+    name: string;
+    categoryId?: string;
+    subcategoryId?: string;
+    vatRegistered?: boolean;
+  }) => Promise<Vendor | null>;
+  updateVendor: (
+    id: string,
+    patch: { categoryId?: string; subcategoryId?: string; vatRegistered?: boolean; alias?: string },
+  ) => Promise<void>;
+  linkFileToLine: (fileId: string, lineId: string, amount?: number) => Promise<void>;
   ensureRoutedLine: (eventId: string, categoryId: string, subcategoryId?: string, childName?: string) => Promise<string | null>;
   deleteBill: (billId: string) => Promise<void>;
   addBudgetLine: (eventId: string, section: Section, name: string, amount: number, vatExempt: boolean) => void;
@@ -209,6 +225,7 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       detail?: string;
       ref?: string;
       vatExempt?: boolean;
+      vatOverride?: number;
     }): Promise<Line | null> => {
       const siblings = db.lines.filter(
         (l) =>
@@ -229,6 +246,7 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
         detail: input.detail,
         ref: input.ref,
         vatExempt: input.vatExempt,
+        vatOverride: input.vatOverride,
       };
       setDb((d) => ({ ...d, lines: [...d.lines, line] }));
       const { error } = await supabase.from("lines").insert(lineToRow(line) as never);
@@ -597,6 +615,7 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
           detail: input.description || undefined,
           ref: input.ref || undefined,
           vatExempt: input.vatExempt || undefined,
+          vatOverride: input.vatAmount,
         });
         if (!child) return null;
         const bill: Bill = {
@@ -616,6 +635,77 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.from("bills").insert(billToRow(bill) as never);
         if (error) fail(error);
         return { billId: bill.id, lineId: child.id };
+      },
+      addVendor: async ({ name, categoryId, subcategoryId, vatRegistered }) => {
+        const p = promoterOrThrow();
+        const value = name.trim();
+        if (!value) return null;
+        const existing = db.vendors.find((v) => v.name.toLowerCase() === value.toLowerCase());
+        if (existing) return existing;
+        const row = {
+          promoter_id: p.id,
+          name: value,
+          aliases: [],
+          default_category_id: categoryId ?? null,
+          default_subcategory_id: subcategoryId ?? null,
+          vat_registered: vatRegistered ?? false,
+        };
+        const { data, error } = await supabase.from("vendors").insert(row as never).select("*").single();
+        if (error || !data) {
+          fail(error);
+          return null;
+        }
+        const vendor: Vendor = {
+          id: String((data as Record<string, unknown>)["id"]),
+          promoterId: p.id,
+          name: value,
+          aliases: [],
+          defaultCategoryId: categoryId,
+          defaultSubcategoryId: subcategoryId,
+          vatRegistered: vatRegistered ?? false,
+        };
+        setDb((d) => ({ ...d, vendors: [...d.vendors, vendor] }));
+        return vendor;
+      },
+      updateVendor: async (id, patch) => {
+        const vendor = db.vendors.find((v) => v.id === id);
+        if (!vendor) return;
+        const aliases =
+          patch.alias && patch.alias.trim() && patch.alias.trim().toLowerCase() !== vendor.name.toLowerCase()
+            ? Array.from(new Set([...vendor.aliases, patch.alias.trim()]))
+            : vendor.aliases;
+        const next: Vendor = {
+          ...vendor,
+          aliases,
+          defaultCategoryId: patch.categoryId ?? vendor.defaultCategoryId,
+          defaultSubcategoryId:
+            patch.categoryId !== undefined ? patch.subcategoryId : (patch.subcategoryId ?? vendor.defaultSubcategoryId),
+          vatRegistered: patch.vatRegistered ?? vendor.vatRegistered,
+        };
+        setDb((d) => ({ ...d, vendors: d.vendors.map((v) => (v.id === id ? next : v)) }));
+        const { error } = await supabase
+          .from("vendors")
+          .update({
+            aliases: next.aliases,
+            default_category_id: next.defaultCategoryId ?? null,
+            default_subcategory_id: next.defaultSubcategoryId ?? null,
+            vat_registered: next.vatRegistered,
+          } as never)
+          .eq("id", id);
+        if (error) fail(error);
+      },
+      linkFileToLine: async (fileId, lineId, amount) => {
+        setDb((d) => ({
+          ...d,
+          files: d.files.map((f) =>
+            f.id === fileId ? { ...f, lineId, amount: amount ?? f.amount } : f,
+          ),
+        }));
+        const { error } = await supabase
+          .from("files")
+          .update({ line_id: lineId, ...(amount !== undefined ? { amount } : {}) } as never)
+          .eq("id", fileId);
+        if (error) fail(error);
       },
       routeLine: routeLineFn,
       deleteBill: async (billId) => {

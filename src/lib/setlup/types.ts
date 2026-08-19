@@ -113,6 +113,17 @@ export interface FileRecord {
   storagePath?: string;
 }
 
+/** Promoter-owned vendor master. Learned as bills are routed. */
+export interface Vendor {
+  id: string;
+  promoterId: string;
+  name: string;
+  aliases: string[];
+  defaultCategoryId?: string;
+  defaultSubcategoryId?: string;
+  vatRegistered: boolean;
+}
+
 export interface Settings {
   currency: string;
   vatRate: number;
@@ -122,6 +133,7 @@ export interface Settings {
 export interface Db {
   settings: Settings;
   categories: Category[];
+  vendors: Vendor[];
   events: EventRecord[];
   lines: Line[];
   moneyIn: MoneyIn[];

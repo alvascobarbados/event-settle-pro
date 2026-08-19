@@ -474,6 +474,61 @@ export type Database = {
         }
         Relationships: []
       }
+      vendors: {
+        Row: {
+          aliases: string[]
+          created_at: string
+          default_category_id: string | null
+          default_subcategory_id: string | null
+          id: string
+          name: string
+          promoter_id: string
+          vat_registered: boolean
+        }
+        Insert: {
+          aliases?: string[]
+          created_at?: string
+          default_category_id?: string | null
+          default_subcategory_id?: string | null
+          id?: string
+          name: string
+          promoter_id: string
+          vat_registered?: boolean
+        }
+        Update: {
+          aliases?: string[]
+          created_at?: string
+          default_category_id?: string | null
+          default_subcategory_id?: string | null
+          id?: string
+          name?: string
+          promoter_id?: string
+          vat_registered?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendors_default_category_id_fkey"
+            columns: ["default_category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendors_default_subcategory_id_fkey"
+            columns: ["default_subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendors_promoter_id_fkey"
+            columns: ["promoter_id"]
+            isOneToOne: false
+            referencedRelation: "promoters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
