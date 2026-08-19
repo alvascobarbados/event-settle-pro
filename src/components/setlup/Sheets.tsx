@@ -6,6 +6,7 @@ import { money, todayIso } from "@/lib/setlup/format";
 import type { Ledgerable, Section } from "@/lib/setlup/types";
 import { PillGroup, PrimaryButton } from "./ui";
 import { ScanBillPanel } from "./ScanBill";
+import { FileSource } from "./FileSource";
 
 /* ---------------- generic bottom sheet ---------------- */
 
@@ -245,7 +246,7 @@ export function ActionSheet({
       setMode("menu");
       setChained(false);
       setFileKind("bill");
-      setPicked(null);
+      setPickedList([]);
       reset();
     }, 220);
   };
