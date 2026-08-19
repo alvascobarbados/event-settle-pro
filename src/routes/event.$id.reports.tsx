@@ -233,6 +233,8 @@ function Reports() {
           </FinePrint>
         </>
       )}
+
+      <BillPeek target={peekTarget} onClose={() => setPeekLineId(null)} />
     </div>
   );
 }
