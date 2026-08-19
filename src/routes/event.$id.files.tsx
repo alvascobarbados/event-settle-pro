@@ -27,6 +27,7 @@ function Files() {
   const { db, getEvent } = useSetlup();
   const event = getEvent(id);
   const [filter, setFilter] = useState<Filter>("all");
+  const [peekId, setPeekId] = useState<string | null>(null);
   if (!event) return null;
 
   const all = db.files.filter((f) => f.eventId === event.id);
