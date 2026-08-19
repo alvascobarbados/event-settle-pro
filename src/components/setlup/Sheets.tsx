@@ -237,14 +237,22 @@ export function ActionSheet({
   };
 
   const eventLines = db.lines.filter((l) => l.eventId === eventId);
+  /* categories, each followed by its invoice child lines indented beneath it */
   const lineOptions = (secs: Section[]) =>
     eventLines
-      .filter((l) => secs.includes(l.section))
-      .map((l) => (
-        <option key={l.id} value={l.id}>
-          {l.name}
-        </option>
-      ));
+      .filter((l) => secs.includes(l.section) && !l.parentId)
+      .flatMap((parent) => [
+        <option key={parent.id} value={parent.id}>
+          {parent.name}
+        </option>,
+        ...eventLines
+          .filter((c) => c.parentId === parent.id)
+          .map((c) => (
+            <option key={c.id} value={c.id}>
+              {`\u00a0\u00a0\u00a0\u2014 ${c.name}${c.ref ? ` · inv ${c.ref}` : ""}`}
+            </option>
+          )),
+      ]);
 
   const titles: Record<Mode, string> = {
     menu: "Add",
