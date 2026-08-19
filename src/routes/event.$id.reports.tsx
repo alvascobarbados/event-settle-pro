@@ -219,11 +219,24 @@ function Reports() {
 
       {tab === "vat" && (
         <>
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                exportVatPdf({ event, promoterName: promoterName ?? "SETLUP", vat })
+              }
+              className="h-10 rounded-full px-4 text-[12px] font-extrabold uppercase tracking-[0.07em] text-white"
+              style={{ backgroundColor: "var(--accent-c)" }}
+            >
+              Export PDF
+            </button>
+          </div>
           {viewPills}
           <div className="mt-4">
             <SectionLabel>VAT return · 17.5% inclusive</SectionLabel>
           </div>
           <Card className="mt-2 overflow-hidden">
+
             {view === "summary" ? (
               <>
                 <StatLine label="Output VAT" sub="VAT within revenue" amount={vat.output} />
