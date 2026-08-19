@@ -143,7 +143,7 @@ function EventCard({ event }: { event: EventRecord }) {
 
         <div className="mt-3.5 flex items-end justify-between gap-3">
           <div>
-            <SectionLabel>{pnl.budgeted ? "Budgeted profit" : "Profit before tax"}</SectionLabel>
+            <SectionLabel>{pnl.budgeted ? "Budgeted profit" : "Profit before VAT"}</SectionLabel>
             <div
               className="num mt-1 text-[24px] font-black leading-none"
               style={{ color: pnl.profitBeforeTax < 0 ? "var(--red)" : "var(--accent-deep-c)" }}

@@ -59,7 +59,7 @@ function EventHome() {
 
       <Card className="mt-3 overflow-hidden">
         <Milestone
-          label={pnl.budgeted ? "Budgeted profit" : "Profit before tax"}
+          label={pnl.budgeted ? "Budgeted profit" : "Profit before VAT"}
           amount={pnl.profitBeforeTax}
           sub={`${pct(pnl.profitBeforeTax, pnl.revenue.amount)} of revenue${
             event.headcount ? ` · ${perHead(pnl.profitBeforeTax, event.headcount)}` : ""

@@ -9,9 +9,10 @@ import {
   SectionHeader,
   SectionTotal,
   StatLine,
+  VatRow,
 } from "@/components/setlup/Ledger";
-import { Card, Chip, FinePrint, PillGroup, SectionLabel } from "@/components/setlup/ui";
-import { budgetReportOf, cashOf, pnlOf, type SectionResult } from "@/lib/setlup/compute";
+import { Card, FinePrint, PillGroup, SectionLabel } from "@/components/setlup/ui";
+import { budgetReportOf, cashOf, pnlOf, vatReportOf, type SectionResult } from "@/lib/setlup/compute";
 import { money, pct, perHead } from "@/lib/setlup/format";
 import { useSetlup } from "@/lib/setlup/store";
 
@@ -28,12 +29,14 @@ export const Route = createFileRoute("/event/$id/reports")({
 });
 
 type Tab = "pnl" | "budget" | "vat" | "cash";
+type View = "summary" | "detail";
 
 function Reports() {
   const { id } = Route.useParams();
-  const { db, getEvent } = useSetlup();
+  const { db, getEvent, setLineVatExcluded } = useSetlup();
   const event = getEvent(id);
   const [tab, setTab] = useState<Tab>("pnl");
+  const [view, setView] = useState<View>("summary");
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [peekLineId, setPeekLineId] = useState<string | null>(null);
   if (!event) return null;
@@ -41,6 +44,33 @@ function Reports() {
   const pnl = pnlOf(db, event);
   const cash = cashOf(db, event);
   const budget = budgetReportOf(db, event);
+  const vat = vatReportOf(db, event, pnl);
+
+  /* Detail expands every drill-down at once; Summary collapses them all. */
+  const applyView = (v: View) => {
+    setView(v);
+    setOpen(
+      v === "detail"
+        ? Object.fromEntries(
+            [...pnl.revenue.rows, ...pnl.expenses.rows]
+              .filter((r) => r.children.length > 0)
+              .map((r) => [r.line.id, true]),
+          )
+        : {},
+    );
+  };
+  const viewPills = (
+    <div className="mt-3">
+      <PillGroup<View>
+        value={view}
+        onChange={applyView}
+        options={[
+          { value: "summary", label: "Summary" },
+          { value: "detail", label: "Detail" },
+        ]}
+      />
+    </div>
+  );
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }));
   const fileFor = (lineId: string) => db.files.find((f) => f.lineId === lineId);
 
@@ -123,16 +153,16 @@ function Reports() {
 
       {tab === "pnl" && (
         <>
-          <div className="mt-4 flex items-center justify-between">
+          {viewPills}
+          <div className="mt-4">
             <SectionLabel>{pnl.budgeted ? "Budgeted P&L" : "Actual P&L"}</SectionLabel>
-            <Chip tone="neutral">VAT inclusive</Chip>
           </div>
           <Card className="mt-2 overflow-hidden pt-3">
-            <LedgerHead vatLabel="VAT in" />
+            <LedgerHead vatLabel="VAT" />
             {renderSection("Revenue", pnl.revenue, "Total revenue")}
             {renderSection("Expenses", pnl.expenses, "Total expenses")}
             <Milestone
-              label="Profit before tax"
+              label="Profit before VAT"
               amount={pnl.profitBeforeTax}
               sub={
                 event.headcount
@@ -189,21 +219,68 @@ function Reports() {
 
       {tab === "vat" && (
         <>
+          {viewPills}
           <div className="mt-4">
             <SectionLabel>VAT return · 17.5% inclusive</SectionLabel>
           </div>
           <Card className="mt-2 overflow-hidden">
-            <StatLine label="Output VAT" sub="VAT within revenue" amount={pnl.outputVat} />
-            <StatLine label="Input VAT" sub="VAT within expenses" amount={pnl.inputVat} />
+            {view === "summary" ? (
+              <>
+                <StatLine label="Output VAT" sub="VAT within revenue" amount={vat.output} />
+                <StatLine label="Input VAT" sub="VAT within expenses" amount={vat.input} />
+              </>
+            ) : (
+              <>
+                <SectionHeader title="Output VAT on revenue" />
+                <LedgerHead vatLabel="VAT" />
+                {vat.outputRows.map((r) => (
+                  <VatRow
+                    key={r.line.id}
+                    label={r.line.name}
+                    detail={r.detail || undefined}
+                    amount={r.amount}
+                    vat={r.vat}
+                    included={!r.excluded}
+                    onToggle={() => setLineVatExcluded(r.line.id, !r.excluded)}
+                  />
+                ))}
+                <StatLine label="Output VAT" amount={vat.output} strong />
+
+                <SectionHeader title="Input VAT on purchases" />
+                <LedgerHead vatLabel="VAT" />
+                {vat.inputRows.map((r) => (
+                  <VatRow
+                    key={r.line.id}
+                    label={r.line.name}
+                    detail={r.detail || undefined}
+                    amount={r.amount}
+                    vat={r.vat}
+                    included={!r.excluded}
+                    onToggle={() => setLineVatExcluded(r.line.id, !r.excluded)}
+                  />
+                ))}
+                <StatLine label="Input VAT" amount={vat.input} strong />
+              </>
+            )}
             <Milestone
-              label={pnl.netVat >= 0 ? "Net VAT payable" : "Net VAT refundable"}
-              amount={Math.abs(pnl.netVat)}
-              sub={event.vatExported ? "Marked exported" : "Not yet exported"}
+              label={vat.net >= 0 ? "Net VAT payable" : "Net VAT refundable"}
+              amount={Math.abs(vat.net)}
+              sub={
+                [
+                  event.vatExported ? "Marked exported" : "Not yet exported",
+                  vat.excludedCount > 0
+                    ? `${vat.excludedCount} item${vat.excludedCount === 1 ? "" : "s"} excluded`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              }
               hero
             />
           </Card>
           <FinePrint>
-            VAT within an inclusive amount is amount × 17.5 ÷ 117.5. Exempt lines contribute nothing.
+            VAT within an inclusive amount is amount × 17.5 ÷ 117.5. Exempt lines contribute nothing. Untick a row to
+            leave it out of the VAT report — P&L amounts never change.
           </FinePrint>
         </>
       )}
