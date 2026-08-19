@@ -409,6 +409,10 @@ export function ActionSheet({
             <PrimaryButton
               onClick={async () => {
                 if (!name.trim() || uploading) return;
+                if (picked && picked.size > 20 * 1024 * 1024) {
+                  showToast("File is larger than 20 MB");
+                  return;
+                }
                 let storagePath: string | undefined;
                 if (picked && userId) {
                   setUploading(true);
@@ -435,12 +439,32 @@ export function ActionSheet({
                 });
                 setPicked(null);
                 showToast("File attached");
-                close();
+                setChained(true);
+                reset();
               }}
             >
               {uploading ? "Uploading…" : "Attach"}
             </PrimaryButton>
           </div>
+          {chained && (
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setChained(false)}
+                className="h-11 flex-1 rounded-full bg-app text-[12.5px] font-extrabold uppercase tracking-[0.07em] text-ink"
+              >
+                Add another
+              </button>
+              <button
+                type="button"
+                onClick={close}
+                className="h-11 flex-1 rounded-full text-[12.5px] font-extrabold uppercase tracking-[0.07em] text-white"
+                style={{ backgroundColor: "var(--accent-c)" }}
+              >
+                Done
+              </button>
+            </div>
+          )}
         </>
       )}
 
