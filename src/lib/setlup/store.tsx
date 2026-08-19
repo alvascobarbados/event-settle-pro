@@ -63,6 +63,8 @@ interface StoreValue {
   userEmail: string | null;
   authReady: boolean;
   loading: boolean;
+  resetToSeed: () => Promise<void>;
+  setFileStoragePath: (fileId: string, storagePath: string, type?: FileRecord["type"]) => void;
   signOut: () => Promise<void>;
 }
 
@@ -74,7 +76,8 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [loading, setLoading] = useState(false);
+  /* true until we know there is no session, or until the signed-in user's data has loaded */
+  const [loading, setLoading] = useState(true);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -87,12 +90,14 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       if (!active) return;
       setUserId(data.session?.user.id ?? null);
       setUserEmail(data.session?.user.email ?? null);
+      setLoading(!!data.session);
       setAuthReady(true);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       setUserId(session?.user.id ?? null);
       setUserEmail(session?.user.email ?? null);
+      setLoading(!!session);
       setAuthReady(true);
       if (!session) setDb(EMPTY_DB);
     });
@@ -153,6 +158,51 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       userEmail,
       authReady,
       loading,
+      setFileStoragePath: (fileId, storagePath, type) => {
+        setDb((d) => ({
+          ...d,
+          files: d.files.map((f) =>
+            f.id === fileId ? { ...f, storagePath, type: type ?? f.type } : f,
+          ),
+        }));
+        void supabase
+          .from("files")
+          .update({ storage_path: storagePath, ...(type ? { type } : {}) } as never)
+          .eq("id", fileId)
+          .then(({ error }) => error && fail(error));
+      },
+      resetToSeed: async () => {
+        const id = uidOrThrow();
+        setLoading(true);
+        try {
+          const list = await supabase.storage.from("setlup-files").list(id, { limit: 1000 });
+          const paths: string[] = [];
+          for (const entry of list.data ?? []) {
+            if (entry.id) {
+              paths.push(`${id}/${entry.name}`);
+              continue;
+            }
+            const sub = await supabase.storage
+              .from("setlup-files")
+              .list(`${id}/${entry.name}`, { limit: 1000 });
+            for (const f of sub.data ?? []) paths.push(`${id}/${entry.name}/${f.name}`);
+          }
+          if (paths.length > 0) await supabase.storage.from("setlup-files").remove(paths);
+
+          for (const table of ["payments", "money_in", "bills", "files", "lines", "events"] as const) {
+            const { error } = await supabase.from(table).delete().eq("user_id", id);
+            if (error) throw error;
+          }
+          const next = await seedForUser(id);
+          setDb(next);
+          showToast("Data reset to seed");
+        } catch (e) {
+          console.error(e);
+          showToast("Reset failed");
+        } finally {
+          setLoading(false);
+        }
+      },
       signOut: async () => {
         await supabase.auth.signOut();
         setDb(EMPTY_DB);

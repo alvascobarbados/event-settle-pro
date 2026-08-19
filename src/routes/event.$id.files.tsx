@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ScrollTop } from "@/components/setlup/Shell";
 import { Card, Chip, EmptyState, PillGroup, SectionLabel } from "@/components/setlup/ui";
@@ -65,8 +65,9 @@ function Files() {
 }
 
 function FileRow({ file: f }: { file: FileRecord }) {
-  const { db, showToast } = useSetlup();
+  const { db, showToast, userId, setFileStoragePath } = useSetlup();
   const [busy, setBusy] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   async function open() {
     if (!f.storagePath || busy) return;
@@ -82,6 +83,27 @@ function FileRow({ file: f }: { file: FileRecord }) {
     window.open(data.signedUrl, "_blank", "noopener");
   }
 
+  async function upload(file: File) {
+    if (!userId) return;
+    if (file.size > 20 * 1024 * 1024) {
+      showToast("File is larger than 20 MB");
+      return;
+    }
+    setBusy(true);
+    const safe = file.name.replace(/[^\w.\-]+/g, "_");
+    const path = `${userId}/${f.eventId}/${Date.now()}-${safe}`;
+    const { error } = await supabase.storage
+      .from("setlup-files")
+      .upload(path, file, { contentType: file.type || undefined });
+    setBusy(false);
+    if (error) {
+      showToast("Upload failed");
+      return;
+    }
+    setFileStoragePath(f.id, path, file.type.startsWith("image/") ? "IMG" : "PDF");
+    showToast("PDF attached");
+  }
+
   const body = (
     <>
       <span
@@ -94,7 +116,7 @@ function FileRow({ file: f }: { file: FileRecord }) {
         <span className="block text-[14px] font-semibold text-ink">{f.name}</span>
         <span className="block text-[11.5px] text-mute">
           {fmtDate(f.date)}
-          {f.storagePath ? (busy ? " · opening…" : " · tap to view") : ""}
+          {f.storagePath ? (busy ? " · opening…" : " · tap to view") : " · No PDF attached"}
         </span>
         <span className="mt-1.5 block">
           <Chip tone={f.lineId ? "green" : "neutral"}>{lineName(db, f.lineId) ?? "Unlinked"}</Chip>
@@ -107,7 +129,31 @@ function FileRow({ file: f }: { file: FileRecord }) {
   );
 
   if (!f.storagePath) {
-    return <div className="dashed-row flex items-start gap-3 px-4 py-3.5">{body}</div>;
+    return (
+      <div className="dashed-row flex items-start gap-3 px-4 py-3.5">
+        {body}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="application/pdf,image/png,image/jpeg"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void upload(file);
+          }}
+        />
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => inputRef.current?.click()}
+          className="shrink-0 self-center text-[11.5px] font-extrabold uppercase tracking-[0.06em] disabled:opacity-60"
+          style={{ color: "var(--accent-c)" }}
+        >
+          {busy ? "Uploading…" : "Attach PDF"}
+        </button>
+      </div>
+    );
   }
   return (
     <button

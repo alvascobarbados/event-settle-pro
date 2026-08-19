@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ScrollTop } from "@/components/setlup/Shell";
+import { BillPeek, type PeekTarget } from "@/components/setlup/BillPeek";
 import {
   LedgerHead,
   LedgerRow,
@@ -34,12 +35,33 @@ function Reports() {
   const event = getEvent(id);
   const [tab, setTab] = useState<Tab>("pnl");
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [peekLineId, setPeekLineId] = useState<string | null>(null);
   if (!event) return null;
 
   const pnl = pnlOf(db, event);
   const cash = cashOf(db, event);
   const budget = budgetReportOf(db, event);
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }));
+  const fileFor = (lineId: string) => db.files.find((f) => f.lineId === lineId);
+
+  const peekFile = peekLineId ? fileFor(peekLineId) : undefined;
+  const peekRow = peekLineId
+    ? [pnl.revenue, pnl.cos, pnl.expenses]
+        .flatMap((s) => s.rows.flatMap((r) => r.children))
+        .find((c) => c.line.id === peekLineId)
+    : undefined;
+  const peekTarget: PeekTarget | null =
+    peekRow && peekFile
+      ? {
+          label: peekRow.line.name,
+          detail: [peekRow.line.detail, peekRow.line.ref ? `inv ${peekRow.line.ref}` : null]
+            .filter(Boolean)
+            .join(" · "),
+          amount: peekRow.amount,
+          vat: peekRow.vat,
+          file: peekFile,
+        }
+      : null;
 
   const renderSection = (title: string, sec: SectionResult, totalLabel: string) => (
     <>
@@ -55,23 +77,33 @@ function Reports() {
             onToggle={() => toggle(r.line.id)}
           />
           {open[r.line.id] &&
-            r.children.map((c) => (
-              <LedgerRow
-                key={c.line.id}
-                label={c.line.name}
-                detail={[c.line.detail, c.line.ref ? `inv ${c.line.ref}` : null]
-                  .filter(Boolean)
-                  .join(" · ")}
-                amount={c.amount}
-                vat={c.vat}
-                child
-              />
-            ))}
+            r.children.map((c) => {
+              const linked = fileFor(c.line.id);
+              return (
+                <LedgerRow
+                  key={c.line.id}
+                  label={c.line.name}
+                  detail={[c.line.detail, c.line.ref ? `inv ${c.line.ref}` : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  amount={c.amount}
+                  vat={c.vat}
+                  child
+                  hasFile={!!linked}
+                  onSelect={
+                    linked
+                      ? () => setPeekLineId((p) => (p === c.line.id ? null : c.line.id))
+                      : undefined
+                  }
+                />
+              );
+            })}
         </div>
       ))}
       <SectionTotal label={totalLabel} amount={sec.amount} vat={sec.vat} />
     </>
   );
+
 
   return (
     <div className="px-4 pb-10 pt-4">
@@ -201,6 +233,8 @@ function Reports() {
           </FinePrint>
         </>
       )}
+
+      <BillPeek target={peekTarget} onClose={() => setPeekLineId(null)} />
     </div>
   );
 }

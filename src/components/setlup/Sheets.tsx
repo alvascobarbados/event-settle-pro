@@ -217,6 +217,7 @@ export function ActionSheet({
   const [fileType, setFileType] = useState<"PDF" | "IMG">("PDF");
   const [picked, setPicked] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [chained, setChained] = useState(false);
 
   const reset = () => {
     setCounterparty("");
@@ -232,19 +233,29 @@ export function ActionSheet({
     onClose();
     window.setTimeout(() => {
       setMode("menu");
+      setChained(false);
+      setPicked(null);
       reset();
     }, 220);
   };
 
   const eventLines = db.lines.filter((l) => l.eventId === eventId);
+  /* categories, each followed by its invoice child lines indented beneath it */
   const lineOptions = (secs: Section[]) =>
     eventLines
-      .filter((l) => secs.includes(l.section))
-      .map((l) => (
-        <option key={l.id} value={l.id}>
-          {l.name}
-        </option>
-      ));
+      .filter((l) => secs.includes(l.section) && !l.parentId)
+      .flatMap((parent) => [
+        <option key={parent.id} value={parent.id}>
+          {parent.name}
+        </option>,
+        ...eventLines
+          .filter((c) => c.parentId === parent.id)
+          .map((c) => (
+            <option key={c.id} value={c.id}>
+              {`\u00a0\u00a0\u00a0\u2014 ${c.name}${c.ref ? ` · inv ${c.ref}` : ""}`}
+            </option>
+          )),
+      ]);
 
   const titles: Record<Mode, string> = {
     menu: "Add",
@@ -401,6 +412,10 @@ export function ActionSheet({
             <PrimaryButton
               onClick={async () => {
                 if (!name.trim() || uploading) return;
+                if (picked && picked.size > 20 * 1024 * 1024) {
+                  showToast("File is larger than 20 MB");
+                  return;
+                }
                 let storagePath: string | undefined;
                 if (picked && userId) {
                   setUploading(true);
@@ -427,12 +442,32 @@ export function ActionSheet({
                 });
                 setPicked(null);
                 showToast("File attached");
-                close();
+                setChained(true);
+                reset();
               }}
             >
               {uploading ? "Uploading…" : "Attach"}
             </PrimaryButton>
           </div>
+          {chained && (
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setChained(false)}
+                className="h-11 flex-1 rounded-full bg-app text-[12.5px] font-extrabold uppercase tracking-[0.07em] text-ink"
+              >
+                Add another
+              </button>
+              <button
+                type="button"
+                onClick={close}
+                className="h-11 flex-1 rounded-full text-[12.5px] font-extrabold uppercase tracking-[0.07em] text-white"
+                style={{ backgroundColor: "var(--accent-c)" }}
+              >
+                Done
+              </button>
+            </div>
+          )}
         </>
       )}
 

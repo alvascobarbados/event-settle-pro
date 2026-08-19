@@ -1,5 +1,5 @@
-import { createFileRoute, Outlet, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Outlet, notFound, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { AppBar, PageScroll, accentVars } from "@/components/setlup/Shell";
 import { BottomBar } from "@/components/setlup/BottomBar";
 import { ActionSheet } from "@/components/setlup/Sheets";
@@ -17,20 +17,27 @@ export const Route = createFileRoute("/event/$id")({
 
 function EventLayout() {
   const { id } = Route.useParams();
-  const { getEvent } = useSetlup();
+  const { getEvent, loading } = useSetlup();
   const event = getEvent(id);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const navigate = useNavigate();
+
+  /* stale or deleted event id: send the user back to the lobby rather than a dead end */
+  useEffect(() => {
+    if (!loading && !event) void navigate({ to: "/", replace: true });
+  }, [loading, event, navigate]);
 
   if (!event) {
     return (
       <>
         <AppBar />
         <PageScroll>
-          <EmptyState title="Event not found" body="Pick another event from the menu." />
+          <EmptyState title="Event not found" body="Taking you back to your events…" />
         </PageScroll>
       </>
     );
   }
+
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" style={accentVars(event.accent)}>
