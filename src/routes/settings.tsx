@@ -162,17 +162,20 @@ function SettingsPage() {
                 </button>
               </div>
             )}
-            <div className="px-4 py-3.5">
-              <button
-                type="button"
-                disabled={resetting}
-                onClick={() => setConfirmReset(true)}
-                className="text-[13px] font-bold uppercase tracking-[0.06em] disabled:opacity-60"
-                style={{ color: "var(--red)" }}
-              >
-                {resetting ? "Resetting…" : "Reset data to seed"}
-              </button>
-            </div>
+            {isVerifiedSeedPromoter && (
+              <div className="px-4 py-3.5">
+                <button
+                  type="button"
+                  disabled={resetting}
+                  onClick={() => setConfirmReset(true)}
+                  className="text-[13px] font-bold uppercase tracking-[0.06em] disabled:opacity-60"
+                  style={{ color: "var(--red)" }}
+                >
+                  {resetting ? "Resetting…" : "Reset data to seed"}
+                </button>
+              </div>
+            )}
+
           </Card>
 
           {confirmReset && (
