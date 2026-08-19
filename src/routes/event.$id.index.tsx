@@ -12,7 +12,6 @@ import {
 } from "@/lib/setlup/compute";
 import { fmtDate, money, pct, perHead } from "@/lib/setlup/format";
 import { useSetlup } from "@/lib/setlup/store";
-import type { EventRecord } from "@/lib/setlup/types";
 
 export const Route = createFileRoute("/event/$id/")({
   head: () => ({
