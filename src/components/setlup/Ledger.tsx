@@ -229,3 +229,59 @@ export function StatLine({
     </div>
   );
 }
+
+/* ---------------- VAT report detail row ---------------- */
+
+export function VatRow({
+  label,
+  detail,
+  amount,
+  vat,
+  included,
+  onToggle,
+}: {
+  label: string;
+  detail?: string;
+  amount: number;
+  vat: number;
+  included: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="dashed-row">
+      <div
+        className="grid grid-cols-[minmax(0,1fr)_auto_64px_30px] items-start gap-2 px-4"
+        style={{ minHeight: 42, opacity: included ? 1 : 0.45 }}
+      >
+        <span className="min-w-0 py-2">
+          <span className="block text-[13px] font-semibold leading-snug text-ink">{label}</span>
+          {detail && <span className="mt-0.5 block text-[11px] leading-snug text-mute">{detail}</span>}
+        </span>
+        <span className="num py-2 text-right text-[13px] font-semibold text-ink">{money(amount)}</span>
+        <span
+          className="num py-2 text-right text-[11px] text-vat"
+          style={{ textDecoration: included ? undefined : "line-through" }}
+        >
+          {vat === 0 ? "—" : money(vat)}
+        </span>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-pressed={included}
+          aria-label={included ? `Exclude ${label} from VAT` : `Include ${label} in VAT`}
+          className="mt-1.5 grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full"
+          style={{
+            border: `1.5px solid ${included ? "var(--accent-c)" : "var(--hairline)"}`,
+            backgroundColor: included ? "var(--accent-c)" : "transparent",
+          }}
+        >
+          {included && (
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden style={{ color: "#fff" }}>
+              <path d="M5 13l4 4 10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
