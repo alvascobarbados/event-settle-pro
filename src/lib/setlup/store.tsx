@@ -90,12 +90,14 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       if (!active) return;
       setUserId(data.session?.user.id ?? null);
       setUserEmail(data.session?.user.email ?? null);
+      setLoading(!!data.session);
       setAuthReady(true);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       setUserId(session?.user.id ?? null);
       setUserEmail(session?.user.email ?? null);
+      setLoading(!!session);
       setAuthReady(true);
       if (!session) setDb(EMPTY_DB);
     });
