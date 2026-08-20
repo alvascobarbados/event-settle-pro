@@ -15,7 +15,6 @@ import { Card, FinePrint, PillGroup, SectionLabel } from "@/components/setlup/ui
 import { budgetReportOf, cashOf, pnlOf, vatReportOf, type SectionResult } from "@/lib/setlup/compute";
 import { money, pct, perHead } from "@/lib/setlup/format";
 import { useSetlup } from "@/lib/setlup/store";
-import { exportVatPdf } from "@/lib/setlup/pdf-export";
 import { PullToRefresh, SwipeRow } from "@/components/setlup/SwipeRow";
 
 export const Route = createFileRoute("/event/$id/reports")({
@@ -236,9 +235,12 @@ function Reports() {
           <div className="mt-3 flex items-center gap-2">
             <button
               type="button"
-              onClick={() =>
-                exportVatPdf({ event, promoterName: promoterName ?? "SETLUP", vat })
-              }
+              onClick={() => {
+                /* jsPDF stays out of the app bundle until the user exports */
+                void import("@/lib/setlup/pdf-export").then((m) =>
+                  m.exportVatPdf({ event, promoterName: promoterName ?? "SETLUP", vat }),
+                );
+              }}
               className="h-10 rounded-full px-4 text-[12px] font-extrabold uppercase tracking-[0.07em] text-white"
               style={{ backgroundColor: "var(--accent-c)" }}
             >

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -35,6 +36,7 @@ import {
 } from "./types";
 import { todayIso } from "./format";
 import { perfCommitOnPaint, perfMark, perfPhase } from "./perf";
+import { clearSnapshot, readSnapshot, writeSnapshot } from "./snapshot";
 
 let seq = 0;
 const uid = (p: string) => `${p}-${Date.now().toString(36)}-${(seq++).toString(36)}`;
@@ -178,6 +180,9 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
   /* true until we know there is no session, or until the signed-in user's data has loaded */
   const [loading, setLoading] = useState(true);
+  /* user id whose data is currently on screen, and a silent background revalidate */
+  const loadedUserRef = useRef<string | null>(null);
+  const revalidateRef = useRef<(() => void) | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -198,11 +203,22 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      setUserId(session?.user.id ?? null);
+      const nextId = session?.user.id ?? null;
+      /* Returning to the foreground re-emits SIGNED_IN for the same user.
+         Never re-gate the UI for that: revalidate silently in the background. */
+      if (nextId && nextId === loadedUserRef.current) {
+        setUserEmail(session?.user.email ?? null);
+        revalidateRef.current?.();
+        return;
+      }
+      setUserId(nextId);
       setUserEmail(session?.user.email ?? null);
+      /* the gate only engages when there is genuinely nothing on screen */
       setLoading(!!session);
       setAuthReady(true);
       if (!session) {
+        loadedUserRef.current = null;
+        clearSnapshot();
         setDb(EMPTY_DB);
         setPromoter(null);
       }
@@ -216,26 +232,64 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId) return;
     let active = true;
-    setLoading(true);
-    (async () => {
+
+    /* Returning user: paint their real numbers from the cached snapshot first. */
+    const cached = readSnapshot(userId);
+    if (cached) {
+      setPromoter(cached.promoter);
+      setDb(cached.db);
+      setLoading(false);
+      loadedUserRef.current = userId;
+      perfCommitOnPaint();
+    } else {
+      setLoading(true);
+    }
+
+    const run = async (silent: boolean) => {
       try {
-        const p = await perfPhase("promoter", () => ensurePromoter());
-        if (active) setPromoter(p);
-        const next = await perfPhase("data", () => loadDb(p));
+        /* One network phase: with a known promoter, the data batch and the
+           ensure_promoter verification fly in parallel instead of in series. */
+        let p: Promoter;
+        let next: Db;
+        if (cached) {
+          const [verified, batch] = await Promise.all([
+            perfPhase("promoter", () => ensurePromoter()),
+            perfPhase("data", () => loadDb(cached.promoter)),
+          ]);
+          p = verified;
+          next = verified.id === cached.promoter.id ? { ...batch, settings: {
+            currency: verified.currency, vatRate: verified.vatRate, business: verified.name,
+          } } : await loadDb(verified);
+        } else {
+          p = await perfPhase("promoter", () => ensurePromoter());
+          if (active) setPromoter(p);
+          next = await perfPhase("data", () => loadDb(p));
+        }
         /* one-time relocation of legacy per-user upload paths */
         const moved = await migrateStoragePaths(p, userId, next);
-        if (active) setDb(moved ? await loadDb(p) : next);
-        if (active) perfCommitOnPaint();
-
+        const finalDb = moved ? await loadDb(p) : next;
+        writeSnapshot(userId, p, finalDb);
+        if (!active) return;
+        setPromoter(p);
+        setDb(finalDb);
+        loadedUserRef.current = userId;
+        perfCommitOnPaint();
       } catch (e) {
         console.error(e);
-        showToast("Could not load your data");
+        if (!silent) showToast("Could not load your data");
       } finally {
-        if (active) setLoading(false);
+        if (active && !silent) setLoading(false);
       }
-    })();
+    };
+
+    revalidateRef.current = () => {
+      void run(true);
+    };
+    void run(!!cached);
+
     return () => {
       active = false;
+      revalidateRef.current = null;
     };
   }, [userId, showToast]);
 
@@ -502,6 +556,8 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       },
       signOut: async () => {
         await supabase.auth.signOut();
+        loadedUserRef.current = null;
+        clearSnapshot();
         setDb(EMPTY_DB);
         setPromoter(null);
       },
@@ -935,7 +991,9 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       refresh: async () => {
         if (!promoter) return;
         try {
-          setDb(await loadDb(promoter));
+          const fresh = await loadDb(promoter);
+          setDb(fresh);
+          if (userId) writeSnapshot(userId, promoter, fresh);
         } catch (e) {
           console.error(e);
           showToast("Could not refresh");
