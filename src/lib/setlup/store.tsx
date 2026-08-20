@@ -556,6 +556,8 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       },
       signOut: async () => {
         await supabase.auth.signOut();
+        loadedUserRef.current = null;
+        clearSnapshot();
         setDb(EMPTY_DB);
         setPromoter(null);
       },
@@ -989,7 +991,9 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
       refresh: async () => {
         if (!promoter) return;
         try {
-          setDb(await loadDb(promoter));
+          const fresh = await loadDb(promoter);
+          setDb(fresh);
+          if (userId) writeSnapshot(userId, promoter, fresh);
         } catch (e) {
           console.error(e);
           showToast("Could not refresh");
