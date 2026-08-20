@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -35,6 +36,7 @@ import {
 } from "./types";
 import { todayIso } from "./format";
 import { perfCommitOnPaint, perfMark, perfPhase } from "./perf";
+import { clearSnapshot, readSnapshot, writeSnapshot } from "./snapshot";
 
 let seq = 0;
 const uid = (p: string) => `${p}-${Date.now().toString(36)}-${(seq++).toString(36)}`;
@@ -178,6 +180,9 @@ export function SetlupProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
   /* true until we know there is no session, or until the signed-in user's data has loaded */
   const [loading, setLoading] = useState(true);
+  /* user id whose data is currently on screen, and a silent background revalidate */
+  const loadedUserRef = useRef<string | null>(null);
+  const revalidateRef = useRef<(() => void) | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
